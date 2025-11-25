@@ -220,7 +220,7 @@
                     status: 'upcoming', 
                     deleted: false, 
                     createdAt: new Date().toISOString(), 
-                    createdBy: user?.uid, 
+                    createdBy: user?.uid || null,  // ИСПРАВЛЕНО: было user?.uid
                     registeredPlayers: [], 
                     pairs: [] 
                 });
