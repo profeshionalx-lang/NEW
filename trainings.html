@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grechka • Padel • Тренировки</title>
+    <title>Grechka • Тренировки</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -14,137 +14,113 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style> * { font-family: 'Inter', sans-serif; } </style>
     
-    <script src="js/config.js"></script>
-    <script type="text/babel" src="js/shared.js"></script>
+    <script src="/NEW/js/config.js"></script>
+    <script type="text/babel" src="/NEW/js/shared.js"></script>
 </head>
-<body class="bg-black text-white">
+<body class="bg-black">
     <div id="root"></div>
 
     <script type="text/babel">
-        // Перенесите сюда функции: parseCalendarEvent, getGoogleCalendarAccessToken, fetchGoogleCalendarEvents из старого файла
-        // А также компоненты: TrainingsView, CreateTrainingModal
+        const { useState } = React;
 
-        // ВАЖНО: Функции которые были в TrainingsView, использующие parseCalendarEvent должны быть доступны
-        
-        // --- Сюда копируем логику календаря ---
-        async function getGoogleCalendarAccessToken(user) {
-             const credential = await user.getIdTokenResult();
-             return credential.token;
-        }
-
-        async function fetchGoogleCalendarEvents(accessToken, timeMin, timeMax) {
-            // ... (Копируйте тело функции из исходного файла)
-            try {
-                const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
-                url.searchParams.append('key', CONFIG.GOOGLE_CALENDAR.apiKey);
-                url.searchParams.append('timeMin', timeMin);
-                url.searchParams.append('timeMax', timeMax);
-                url.searchParams.append('singleEvents', 'true');
-                url.searchParams.append('orderBy', 'startTime');
-                url.searchParams.append('maxResults', '50');
-                const response = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
-                if (!response.ok) throw new Error(`Calendar API error: ${response.status}`);
-                const data = await response.json();
-                return data.items || [];
-            } catch (error) { console.error(error); return []; }
-        }
-
-        function parseCalendarEvent(event) {
-             // ... (Копируйте тело функции из исходного файла)
-             const start = event.start.dateTime || event.start.date;
-             return {
-                title: event.summary || 'Тренировка',
-                datetime: new Date(start).toISOString(),
-                location: event.location || 'Grecha • 31',
-                price: '10 euro',
-                maxParticipants: 8,
-                description: event.description || '🎾 Тренировка по падел-теннису',
-                source: 'google_calendar',
-                googleEventId: event.id
-            };
-        }
-
-        // --- CreateTrainingModal Component ---
-        function CreateTrainingModal({ onClose }) {
-            // ... (Код компонента из исходного файла, используйте window.Input, window.Button и т.д.)
+        function CreateTraining({ onClose }) {
             const { user } = window.useAuth();
-            const [form, setForm] = React.useState({ title: 'Тренировка', datetime: '', location: 'Grecha', price: '10 euro', maxParticipants: 8, description: '' });
-            const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
+            const [form, setForm] = useState({ title: 'Тренировка', datetime: '', location: 'Grecha', price: '10 euro', maxParticipants: 8 });
             
-            const handleSubmit = async () => {
-                 if (!form.datetime) { alert('Укажите дату'); return; }
-                 const id = 'training_' + Date.now();
-                 await window.fb.doc('trainings', id).set({
-                     id, ...form, participants: [], deleted: false,
-                     createdBy: user?.uid || null, createdAt: new Date().toISOString(), source: 'manual'
-                 });
-                 onClose();
+            const submit = async () => {
+                const id = 'tr_' + Date.now();
+                await window.fb.doc('trainings', id).set({ id, ...form, participants: [], deleted: false, createdBy: user.uid });
+                onClose();
             };
 
             return (
                 <window.Modal onClose={onClose}>
-                    <window.Card className="p-8 max-w-lg w-full">
-                        <h3 className="text-2xl font-bold text-black mb-6">Новая тренировка</h3>
+                    <window.Card className="p-8 w-96">
+                        <h3 className="text-black text-2xl font-bold mb-4">Новая тренировка</h3>
                         <div className="space-y-4">
-                             <window.Input label="Название" value={form.title} onChange={e => update('title', e.target.value)} />
-                             <window.Input label="Дата" type="datetime-local" value={form.datetime} onChange={e => update('datetime', e.target.value)} />
-                             <div className="flex gap-4 mt-6">
-                                <window.Button onClick={handleSubmit}>Создать</window.Button>
-                                <window.Button variant="secondary" onClick={onClose} className="bg-gray-100 text-black">Отмена</window.Button>
-                             </div>
+                            <window.Input label="Название" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+                            <window.Input label="Дата" type="datetime-local" value={form.datetime} onChange={e => setForm({...form, datetime: e.target.value})} />
+                            <window.Input label="Цена" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />
+                            <window.Input label="Место" value={form.location} onChange={e => setForm({...form, location: e.target.value})} />
+                            <window.Button onClick={submit} className="w-full">Создать</window.Button>
                         </div>
                     </window.Card>
                 </window.Modal>
             );
         }
 
-        // --- TrainingsView Component (Main for this page) ---
         function TrainingsView() {
-            // ... (Копируйте логику компонента TrainingsView из исходного файла)
-            // Замените useAuth() на window.useAuth()
-            // Замените Card, Avatar и т.д. на window.Card, window.Avatar
-            const { user, isAdmin } = window.useAuth();
+            const { user, isAdmin, showAuth } = window.useAuth();
             const trainings = window.useCollection('trainings');
-            const [showCreateModal, setShowCreateModal] = React.useState(false);
-            const [syncing, setSyncing] = React.useState(false);
+            const [creating, setCreating] = useState(false);
+            
+            const days = Array(7).fill().map((_, i) => {
+                const d = new Date(); d.setDate(d.getDate() + i);
+                return d;
+            });
 
-            const syncFromGoogleCalendar = async () => {
-                // ... (Логика из файла)
-                if (!user) return alert('Войдите для синхронизации');
-                setSyncing(true);
-                // ... код синхронизации ...
-                setSyncing(false);
+            const join = async (tid) => {
+                if(!user) return showAuth();
+                const t = trainings.find(t => t.id === tid);
+                if (t.participants?.length >= t.maxParticipants) return alert('Мест нет');
+
+                await window.fb.doc('trainings', tid).update({ participants: window.fb.arrayUnion({ id: user.uid, name: user.displayName, photoURL: user.photoURL }) });
             };
             
-            // Упрощенный рендер для примера
+            const leave = async (tid) => {
+                const t = trainings.find(t => t.id === tid);
+                const p = t.participants.find(p => p.id === user.uid);
+                await window.fb.doc('trainings', tid).update({ participants: window.fb.arrayRemove(p) });
+            };
+
             return (
                 <div className="space-y-8">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-3xl font-bold">Тренировки</h2>
-                        {isAdmin && <window.Button onClick={() => setShowCreateModal(true)}>+ Добавить</window.Button>}
+                    <div className="flex justify-between">
+                        <h2 className="text-3xl font-bold text-white">Расписание</h2>
+                        {isAdmin && <window.Button onClick={() => setCreating(true)}>+ Добавить</window.Button>}
                     </div>
-                    
-                    <div className="grid gap-4">
-                        {trainings.filter(t => !t.deleted).map(t => (
-                            <window.Card dark key={t.id} className="p-4 border border-white/10">
-                                <div className="font-bold">{window.formatDate(t.datetime, {weekday:'short', hour:'2-digit', minute:'2-digit'})} - {t.title}</div>
-                                {/* ... остальная верстка ... */}
-                            </window.Card>
+
+                    <div className="flex gap-4 overflow-x-auto pb-4">
+                        {days.map((day, i) => (
+                            <div key={i} className="flex-shrink-0 w-80">
+                                <window.Card dark className="p-6 h-full border border-white/10">
+                                    <div className="text-2xl font-bold text-white mb-4">{day.toLocaleDateString('ru-RU', {weekday: 'long'})}</div>
+                                    <div className="space-y-4">
+                                        {trainings.filter(t => !t.deleted && new Date(t.datetime).toDateString() === day.toDateString()).sort((a,b) => new Date(a.datetime) - new Date(b.datetime)).map(t => {
+                                            const isReg = t.participants?.some(p => p.id === user?.uid);
+                                            const isFull = t.participants?.length >= t.maxParticipants;
+                                            return (
+                                                <div key={t.id} className="bg-white/10 rounded-xl p-4 text-white">
+                                                    <div className="font-bold">{new Date(t.datetime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                                                    <div className="text-sm opacity-70 mb-2">{t.title}</div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className={`text-xs ${isFull ? 'text-red-400' : ''}`}>{t.participants?.length}/{t.maxParticipants}</span>
+                                                        {isReg ? 
+                                                            <button onClick={() => leave(t.id)} className="text-red-400 text-xs">Выйти</button> :
+                                                            <button onClick={() => join(t.id)} disabled={isFull} className={window.cn('bg-white text-black px-3 py-1 rounded-full text-xs font-bold', isFull && 'opacity-50 cursor-not-allowed')}>
+                                                                {isFull ? 'Full' : 'Join'}
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {trainings.filter(t => !t.deleted && new Date(t.datetime).toDateString() === day.toDateString()).length === 0 && <div className="text-white/20 text-center py-4">Нет тренировок</div>}
+                                    </div>
+                                </window.Card>
+                            </div>
                         ))}
                     </div>
-                    {showCreateModal && <CreateTrainingModal onClose={() => setShowCreateModal(false)} />}
+                    {creating && <CreateTraining onClose={() => setCreating(false)} />}
                 </div>
             );
         }
 
-        // --- App Entry ---
         function App() {
             const auth = window.useAuthState();
             return (
                 <window.AuthContext.Provider value={auth}>
-                    <window.Layout activePage="trainings">
-                        <TrainingsView />
-                    </window.Layout>
+                    <window.Layout activePage="trainings"><TrainingsView /></window.Layout>
                 </window.AuthContext.Provider>
             );
         }
