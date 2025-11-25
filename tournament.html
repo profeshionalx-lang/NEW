@@ -8,44 +8,172 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style> * { font-family: 'Inter', sans-serif; } </style>
-    <script src="js/config.js"></script>
-    <script type="text/babel" src="js/shared.js"></script>
+    
+    <script src="/NEW/js/config.js"></script>
+    <script type="text/babel" src="/NEW/js/shared.js"></script>
 </head>
-<body class="bg-black text-white">
+<body class="bg-black">
     <div id="root"></div>
 
     <script type="text/babel">
-        // Сюда копируем ВСЮ логику, связанную с самим турниром:
-        // generateGroups, recalcGroup
-        // TournamentView, TournamentInfo, StageView, GroupView, MatchCard, ScoreModal, PairsEditor
+        const { useState } = React;
 
-        function TournamentPage() {
-            const params = new URLSearchParams(window.location.search);
-            const tournamentId = params.get('tournament');
-            
-            // Используем компонент TournamentView, но кнопку "Назад" делаем ссылкой
-            // Вам нужно немного изменить TournamentView из оригинального файла:
-            // Вместо onBack, сделайте <a href="index.html">← Назад</a>
-            
-            if (!tournamentId) return <div>Турнир не найден</div>;
+        // Логика генерации (упрощена для примера)
+        const generateGroups = (pairs, courts) => {
+            const courtsArr = Array(courts).fill().map((_, i) => ({ id: i + 1, name: `Корт ${i + 1}` }));
+            return Array(Math.ceil(pairs.length / 4)).fill().map((_, i) => {
+                const gPairs = pairs.slice(i * 4, (i + 1) * 4);
+                const courtsCount = tournament.courts || 2;
+                const matchCourts = courtsCount >= 2 ? [courtsArr[0], courtsArr[1]] : [courtsArr[0], courtsArr[0]];
+                
+                const matches = gPairs.length === 4 ? [
+                    [0,1, matchCourts[0]], [2,3, matchCourts[1]], 
+                    [0,2, matchCourts[0]], [1,3, matchCourts[1]], 
+                    [0,3, matchCourts[0]], [1,2, matchCourts[1]]
+                ].map(([a,b, court], r) => ({ 
+                    round: Math.floor(r/2)+1, pair1: gPairs[a], pair2: gPairs[b], court, set1p1: '', set1p2: '' 
+                })) : [];
+                return { id: i, name: String.fromCharCode(65 + i), matches, pairs: gPairs.map(p => ({...p, points: 0, gamesDiff: 0})) };
+            });
+        };
 
-            return <TournamentView tournamentId={tournamentId} />;
+        function TournamentView() {
+            const id = new URLSearchParams(window.location.search).get('id');
+            const { user, isAdmin, showAuth } = window.useAuth();
+            const tournament = window.useDocument('tournaments', id);
+            const [editingMatch, setEditingMatch] = useState(null);
+
+            if (!tournament) return <div className="text-white">Загрузка...</div>;
+
+            const register = async () => {
+                if(!user) return showAuth();
+                await window.fb.doc('tournaments', id).update({ registeredPlayers: window.fb.arrayUnion({ id: user.uid, name: user.displayName, photoURL: user.photoURL }) });
+            };
+
+            const start = async () => {
+                const players = [...tournament.registeredPlayers].sort(() => Math.random() - 0.5);
+                const pairs = [];
+                for(let i=0; i<players.length; i+=2) pairs.push({ id: i, number: Math.floor(i/2)+1, player1: players[i].name, player2: players[i+1]?.name || '?', player1Id: players[i].id, player2Id: players[i+1]?.id || null });
+                const groups = generateGroups(pairs, tournament.courts || 2);
+                await window.fb.doc('tournaments', id).update({ status: 'stage1', pairs, stage1Groups: groups });
+            };
+
+            const saveMatch = async () => {
+                const { gIdx, mIdx, s1, s2 } = editingMatch;
+                const groups = [...tournament.stage1Groups];
+                const group = groups[gIdx];
+                const match = group.matches[mIdx];
+                match.set1p1 = s1; match.set1p2 = s2;
+                
+                // Простейший пересчет очков: сбрасываем, потом пересчитываем
+                group.pairs.forEach(p => p.points = 0);
+                group.matches.forEach(m => {
+                    if(m.set1p1 && m.set1p2) {
+                        const s1 = parseInt(m.set1p1);
+                        const s2 = parseInt(m.set1p2);
+                        if (s1 > s2) {
+                            group.pairs.find(p => p.id === m.pair1.id).points += 3;
+                        } else if (s2 > s1) {
+                            group.pairs.find(p => p.id === m.pair2.id).points += 3;
+                        }
+                    }
+                });
+                group.pairs.sort((a, b) => b.points - a.points);
+                
+                await window.fb.doc('tournaments', id).update({ stage1Groups: groups });
+                setEditingMatch(null);
+            };
+
+            return (
+                <div className="text-white">
+                    <div className="flex items-center gap-4 mb-8">
+                        {/* Возврат на абсолютный путь */}
+                        <a href="/NEW/index.html" className="text-2xl opacity-50 hover:opacity-100">←</a>
+                        <h2 className="text-3xl font-bold">{tournament.name}</h2>
+                        {tournament.status === 'stage1' && <window.Badge variant="active">LIVE</window.Badge>}
+                    </div>
+
+                    {!tournament.stage1Groups ? (
+                        <div className="grid grid-cols-2 gap-8">
+                            <window.Card className="p-8">
+                                <h3 className="text-black text-xl font-bold mb-4">Информация</h3>
+                                <p className="text-gray-600">📍 {tournament.location}</p>
+                                <p className="text-gray-600">💰 {tournament.price}</p>
+                                <div className="mt-6">
+                                    {tournament.registeredPlayers?.some(p => p.id === user?.uid) ? 
+                                        <window.Button variant="danger" className="w-full">Вы уже записаны</window.Button> :
+                                        <window.Button onClick={register} className="w-full">Записаться</window.Button>
+                                    }
+                                </div>
+                                {isAdmin && tournament.registeredPlayers?.length >= 4 && <window.Button onClick={start} variant="secondary" className="mt-4 w-full bg-blue-600">Начать турнир</window.Button>}
+                            </window.Card>
+                            <window.Card className="p-8">
+                                <h3 className="text-black font-bold mb-4">Участники ({tournament.registeredPlayers?.length || 0})</h3>
+                                {tournament.registeredPlayers?.map(p => <div key={p.id} className="flex gap-2 mb-2 items-center text-black"><window.Avatar src={p.photoURL} size="sm"/> {p.name}</div>)}
+                            </window.Card>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {tournament.stage1Groups.map((g, gIdx) => (
+                                <div key={gIdx} className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-3xl p-6">
+                                    <h3 className="text-2xl font-bold mb-4">Группа {g.name}</h3>
+                                    
+                                    {/* Таблица очков */}
+                                    <div className="bg-white/10 rounded-xl mb-4 p-3">
+                                        <div className="flex justify-between font-bold text-sm text-white/50 border-b border-white/10 pb-2 mb-2">
+                                            <span>Пара</span>
+                                            <span>Очки</span>
+                                        </div>
+                                        {g.pairs.map((p, pIdx) => (
+                                            <div key={p.id} className="flex justify-between py-1">
+                                                <span>{pIdx+1}. {p.player1}/{p.player2}</span>
+                                                <span className="font-bold">{p.points}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {g.matches.map((m, mIdx) => (
+                                            <div key={mIdx} className="bg-white/10 p-3 rounded-xl flex justify-between items-center">
+                                                <span>#{m.pair1.number} vs #{m.pair2.number}</span>
+                                                {m.set1p1 ? 
+                                                    <span className="font-bold text-xl cursor-pointer" onClick={() => isAdmin && setEditingMatch({gIdx, mIdx, s1: m.set1p1, s2: m.set1p2})}>{m.set1p1}:{m.set1p2}</span> : 
+                                                    (isAdmin && <button onClick={() => setEditingMatch({gIdx, mIdx, s1:'', s2:''})} className="bg-white text-black px-3 py-1 rounded text-xs">Ввести</button>)
+                                                }
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {editingMatch && (
+                        <window.Modal onClose={() => setEditingMatch(null)}>
+                            <window.Card dark className="p-8 text-center">
+                                <h3 className="text-xl mb-4">Результат матча</h3>
+                                <div className="flex gap-4 mb-4 justify-center">
+                                    <input type="number" className="w-16 h-16 text-black text-center text-2xl rounded" value={editingMatch.s1} onChange={e => setEditingMatch({...editingMatch, s1: e.target.value})} />
+                                    <input type="number" className="w-16 h-16 text-black text-center text-2xl rounded" value={editingMatch.s2} onChange={e => setEditingMatch({...editingMatch, s2: e.target.value})} />
+                                </div>
+                                <window.Button onClick={saveMatch}>Сохранить</window.Button>
+                            </window.Card>
+                        </window.Modal>
+                    )}
+                </div>
+            );
         }
-
-        // Вставьте сюда компоненты TournamentView, PairsEditor и т.д.
-        // Заменив внутри onBack={goHome} на обычную ссылку <a href="index.html">
 
         function App() {
             const auth = window.useAuthState();
             return (
                 <window.AuthContext.Provider value={auth}>
-                    <window.Layout activePage="tournaments">
-                        <TournamentPage />
-                    </window.Layout>
+                    <window.Layout activePage="tournaments"><TournamentView /></window.Layout>
                 </window.AuthContext.Provider>
             );
         }
