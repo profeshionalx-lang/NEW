@@ -33,5 +33,6 @@ const CONFIG = {
         arrayUnion: firebase.firestore.FieldValue.arrayUnion,
         arrayRemove: firebase.firestore.FieldValue.arrayRemove
     };
+    
     window.dispatchEvent(new Event('firebaseReady'));
 })();
