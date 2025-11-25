@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Детали турнира</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1><a href="index.html">Мой сайт турниров</a></h1>
+    <nav>
+      <a href="index.html">Турниры</a>
+      <a href="trainings.html">Тренировки</a>
+      <a href="players.html">Рейтинг игроков</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="tournament-detail">
+      <h2 id="tournament-title">Загрузка...</h2>
+      <div id="tournament-info"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>© 2025</small>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/shared.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      await App.init();
+      // ожидаем ?id=<tournamentId> в URL
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      if (!id) {
+        document.getElementById('tournament-title').textContent = 'Турнир не найден';
+        return;
+      }
+      App.renderTournamentDetail(id, '#tournament-title', '#tournament-info');
+    });
+  </script>
+</body>
+</html>

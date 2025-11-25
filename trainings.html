@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Тренировки</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <h1><a href="index.html">Мой сайт турниров</a></h1>
+    <nav>
+      <a href="index.html">Турниры</a>
+      <a href="trainings.html">Тренировки</a>
+      <a href="players.html">Рейтинг игроков</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="trainings-section">
+      <h2>Тренировки</h2>
+      <div id="trainings-list" class="list"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>© 2025</small>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/shared.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      await App.init();
+      App.renderTrainings('#trainings-list');
+    });
+  </script>
+</body>
+</html>
