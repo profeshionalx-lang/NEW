@@ -1,40 +1,155 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Тренировки</title>
-  <link rel="stylesheet" href="css/styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grechka • Padel • Тренировки</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style> * { font-family: 'Inter', sans-serif; } </style>
+    
+    <script src="js/config.js"></script>
+    <script type="text/babel" src="js/shared.js"></script>
 </head>
-<body>
-  <header class="site-header">
-    <h1><a href="index.html">Мой сайт турниров</a></h1>
-    <nav>
-      <a href="index.html">Турниры</a>
-      <a href="trainings.html">Тренировки</a>
-      <a href="players.html">Рейтинг игроков</a>
-    </nav>
-  </header>
+<body class="bg-black text-white">
+    <div id="root"></div>
 
-  <main id="main">
-    <section id="trainings-section">
-      <h2>Тренировки</h2>
-      <div id="trainings-list" class="list"></div>
-    </section>
-  </main>
+    <script type="text/babel">
+        // Перенесите сюда функции: parseCalendarEvent, getGoogleCalendarAccessToken, fetchGoogleCalendarEvents из старого файла
+        // А также компоненты: TrainingsView, CreateTrainingModal
 
-  <footer>
-    <small>© 2025</small>
-  </footer>
+        // ВАЖНО: Функции которые были в TrainingsView, использующие parseCalendarEvent должны быть доступны
+        
+        // --- Сюда копируем логику календаря ---
+        async function getGoogleCalendarAccessToken(user) {
+             const credential = await user.getIdTokenResult();
+             return credential.token;
+        }
 
-  <script src="js/config.js"></script>
-  <script src="js/shared.js"></script>
-  <script src="js/auth.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      await App.init();
-      App.renderTrainings('#trainings-list');
-    });
-  </script>
+        async function fetchGoogleCalendarEvents(accessToken, timeMin, timeMax) {
+            // ... (Копируйте тело функции из исходного файла)
+            try {
+                const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
+                url.searchParams.append('key', CONFIG.GOOGLE_CALENDAR.apiKey);
+                url.searchParams.append('timeMin', timeMin);
+                url.searchParams.append('timeMax', timeMax);
+                url.searchParams.append('singleEvents', 'true');
+                url.searchParams.append('orderBy', 'startTime');
+                url.searchParams.append('maxResults', '50');
+                const response = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+                if (!response.ok) throw new Error(`Calendar API error: ${response.status}`);
+                const data = await response.json();
+                return data.items || [];
+            } catch (error) { console.error(error); return []; }
+        }
+
+        function parseCalendarEvent(event) {
+             // ... (Копируйте тело функции из исходного файла)
+             const start = event.start.dateTime || event.start.date;
+             return {
+                title: event.summary || 'Тренировка',
+                datetime: new Date(start).toISOString(),
+                location: event.location || 'Grecha • 31',
+                price: '10 euro',
+                maxParticipants: 8,
+                description: event.description || '🎾 Тренировка по падел-теннису',
+                source: 'google_calendar',
+                googleEventId: event.id
+            };
+        }
+
+        // --- CreateTrainingModal Component ---
+        function CreateTrainingModal({ onClose }) {
+            // ... (Код компонента из исходного файла, используйте window.Input, window.Button и т.д.)
+            const { user } = window.useAuth();
+            const [form, setForm] = React.useState({ title: 'Тренировка', datetime: '', location: 'Grecha', price: '10 euro', maxParticipants: 8, description: '' });
+            const update = (key, val) => setForm(f => ({ ...f, [key]: val }));
+            
+            const handleSubmit = async () => {
+                 if (!form.datetime) { alert('Укажите дату'); return; }
+                 const id = 'training_' + Date.now();
+                 await window.fb.doc('trainings', id).set({
+                     id, ...form, participants: [], deleted: false,
+                     createdBy: user?.uid || null, createdAt: new Date().toISOString(), source: 'manual'
+                 });
+                 onClose();
+            };
+
+            return (
+                <window.Modal onClose={onClose}>
+                    <window.Card className="p-8 max-w-lg w-full">
+                        <h3 className="text-2xl font-bold text-black mb-6">Новая тренировка</h3>
+                        <div className="space-y-4">
+                             <window.Input label="Название" value={form.title} onChange={e => update('title', e.target.value)} />
+                             <window.Input label="Дата" type="datetime-local" value={form.datetime} onChange={e => update('datetime', e.target.value)} />
+                             <div className="flex gap-4 mt-6">
+                                <window.Button onClick={handleSubmit}>Создать</window.Button>
+                                <window.Button variant="secondary" onClick={onClose} className="bg-gray-100 text-black">Отмена</window.Button>
+                             </div>
+                        </div>
+                    </window.Card>
+                </window.Modal>
+            );
+        }
+
+        // --- TrainingsView Component (Main for this page) ---
+        function TrainingsView() {
+            // ... (Копируйте логику компонента TrainingsView из исходного файла)
+            // Замените useAuth() на window.useAuth()
+            // Замените Card, Avatar и т.д. на window.Card, window.Avatar
+            const { user, isAdmin } = window.useAuth();
+            const trainings = window.useCollection('trainings');
+            const [showCreateModal, setShowCreateModal] = React.useState(false);
+            const [syncing, setSyncing] = React.useState(false);
+
+            const syncFromGoogleCalendar = async () => {
+                // ... (Логика из файла)
+                if (!user) return alert('Войдите для синхронизации');
+                setSyncing(true);
+                // ... код синхронизации ...
+                setSyncing(false);
+            };
+            
+            // Упрощенный рендер для примера
+            return (
+                <div className="space-y-8">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-3xl font-bold">Тренировки</h2>
+                        {isAdmin && <window.Button onClick={() => setShowCreateModal(true)}>+ Добавить</window.Button>}
+                    </div>
+                    
+                    <div className="grid gap-4">
+                        {trainings.filter(t => !t.deleted).map(t => (
+                            <window.Card dark key={t.id} className="p-4 border border-white/10">
+                                <div className="font-bold">{window.formatDate(t.datetime, {weekday:'short', hour:'2-digit', minute:'2-digit'})} - {t.title}</div>
+                                {/* ... остальная верстка ... */}
+                            </window.Card>
+                        ))}
+                    </div>
+                    {showCreateModal && <CreateTrainingModal onClose={() => setShowCreateModal(false)} />}
+                </div>
+            );
+        }
+
+        // --- App Entry ---
+        function App() {
+            const auth = window.useAuthState();
+            return (
+                <window.AuthContext.Provider value={auth}>
+                    <window.Layout activePage="trainings">
+                        <TrainingsView />
+                    </window.Layout>
+                </window.AuthContext.Provider>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
 </body>
 </html>
