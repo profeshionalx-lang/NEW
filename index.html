@@ -13,19 +13,19 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style> * { font-family: 'Inter', sans-serif; } </style>
-    
+
     <script src="/NEW/js/config.js"></script>
     <script type="text/babel" src="/NEW/js/shared.js"></script>
+    <script src="/NEW/js/tournament-logic.js"></script>
 </head>
 <body class="bg-black">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect, useRef } = React;
 
         function TournamentCard({ tournament: t, canDelete, onDelete }) {
             const status = t.status === 'completed' ? 'completed' : (t.status === 'stage1' || t.status === 'stage2') ? 'active' : 'default';
-            // Внутренняя ссылка теперь тоже абсолютная
             return (
                 <a href={`/NEW/tournament.html?id=${t.id}`} className="block no-underline">
                     <window.Card className="p-6 cursor-pointer group hover:shadow-xl transition-all h-full relative">
@@ -34,32 +34,232 @@
                             {canDelete && <button onClick={(e) => {e.preventDefault(); onDelete(t.id)}} className="text-gray-300 hover:text-red-500 z-10">✕</button>}
                         </div>
                         <h3 className="text-2xl font-bold text-black mb-4">{t.name}</h3>
-                        <div className="text-gray-500 text-sm">📅 {window.formatDate(t.date)} • 📍 {t.location}</div>
-                        <div className="mt-6 pt-6 border-t flex justify-between">
-                            <span className="text-gray-500"><b className="text-black">{t.registeredPlayers?.length || 0}</b> / {t.maxPlayers}</span>
+                        <div className="text-gray-500 text-sm">
+                            {t.date && `📅 ${window.formatDate(t.date)}`}
+                            {t.location && ` • 📍 ${t.location}`}
+                        </div>
+                        <div className="mt-6 pt-6 border-t flex justify-between text-gray-600">
+                            <span><b className="text-black">{t.pairs?.length || 0}</b> пар</span>
+                            <span><b className="text-black">{t.courts || 0}</b> кортов</span>
                         </div>
                     </window.Card>
                 </a>
             );
         }
 
-        function CreateTournament({ onSubmit, onCancel }) {
-            const [form, setForm] = useState({ name: '', date: '', location: '', price: '', maxPlayers: 16, courts: 2, format: 'fixed' });
-            const u = (k, v) => setForm(f => ({ ...f, [k]: v }));
+        // Компонент для автозаполнения имён игроков
+        function PlayerSelectInput({ value, onChange, placeholder, players }) {
+            const [showSuggestions, setShowSuggestions] = useState(false);
+            const [filteredPlayers, setFilteredPlayers] = useState([]);
+            const wrapperRef = useRef(null);
+
+            useEffect(() => {
+                function handleClickOutside(event) {
+                    if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+                        setShowSuggestions(false);
+                    }
+                }
+                document.addEventListener("mousedown", handleClickOutside);
+                return () => document.removeEventListener("mousedown", handleClickOutside);
+            }, [wrapperRef]);
+
+            useEffect(() => {
+                if (value && players.length > 0) {
+                    const filtered = players.filter(p =>
+                        p.name.toLowerCase().includes(value.toLowerCase()) &&
+                        p.name.toLowerCase() !== value.toLowerCase()
+                    );
+                    setFilteredPlayers(filtered);
+                } else {
+                    setFilteredPlayers([]);
+                }
+            }, [value, players]);
+
             return (
-                <div className="max-w-2xl mx-auto">
+                <div className="relative flex-1" ref={wrapperRef}>
+                    <input
+                        type="text"
+                        className="w-full p-3 bg-gray-700 border-2 border-gray-600 rounded-xl text-white placeholder-gray-400 focus:border-blue-500 outline-none transition-all"
+                        placeholder={placeholder}
+                        value={value}
+                        onChange={(e) => {
+                            onChange(e.target.value);
+                            setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                    />
+                    {showSuggestions && filteredPlayers.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-gray-700 border border-gray-600 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                            {filteredPlayers.map(player => (
+                                <div
+                                    key={player.id}
+                                    className="p-3 hover:bg-gray-600 cursor-pointer text-white border-b border-gray-600 last:border-none"
+                                    onClick={() => {
+                                        onChange(player.name);
+                                        setShowSuggestions(false);
+                                    }}
+                                >
+                                    {player.name}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function CreateTournament({ onSubmit, onCancel, allPlayers }) {
+            const [name, setName] = useState('');
+            const [date, setDate] = useState('');
+            const [location, setLocation] = useState('');
+            const [numPairs, setNumPairs] = useState(8);
+            const [courts, setCourts] = useState(2);
+            const [pairs, setPairs] = useState([]);
+
+            useEffect(() => {
+                const newPairs = [];
+                for (let i = 0; i < numPairs; i++) {
+                    newPairs.push({
+                        id: i + 1,
+                        number: i + 1,
+                        player1: '',
+                        player2: ''
+                    });
+                }
+                setPairs(newPairs);
+            }, [numPairs]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!name.trim()) {
+                    alert('Введите название турнира');
+                    return;
+                }
+                
+                // Генерируем группы сразу при создании турнира
+                const stage1Groups = window.generateGroups(pairs, courts);
+                
+                onSubmit({ 
+                    name, 
+                    date, 
+                    location,
+                    courts, 
+                    pairs,
+                    stage1Groups,
+                    status: 'stage1'
+                });
+            };
+
+            const updatePair = (index, field, value) => {
+                const newPairs = [...pairs];
+                newPairs[index][field] = value;
+                setPairs(newPairs);
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto">
                     <window.Button variant="ghost" onClick={onCancel} className="mb-8">← Назад</window.Button>
-                    <window.Card className="p-8">
-                        <h2 className="text-3xl font-bold text-black mb-8">Создать турнир</h2>
-                        <div className="space-y-4">
-                            <window.Input label="Название" value={form.name} onChange={e => u('name', e.target.value)} />
-                            <window.Input label="Дата" type="date" value={form.date} onChange={e => u('date', e.target.value)} />
-                            <window.Input label="Локация" value={form.location} onChange={e => u('location', e.target.value)} />
-                            <div className="grid grid-cols-2 gap-4">
-                                <window.Input label="Цена" value={form.price} onChange={e => u('price', e.target.value)} />
-                                <window.Input label="Кортов" type="number" value={form.courts} onChange={e => u('courts', +e.target.value)} />
+                    <window.Card dark className="p-8">
+                        <h2 className="text-3xl font-bold text-white mb-8">Создать новый турнир</h2>
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block font-semibold mb-3 text-gray-300">Название турнира</label>
+                                <input
+                                    type="text"
+                                    className="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-2xl text-white placeholder-gray-400 focus:border-blue-500 outline-none transition-all"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Например: Чемпионат клуба"
+                                />
                             </div>
-                            <window.Button onClick={() => onSubmit(form)} className="w-full mt-4">Создать</window.Button>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block font-semibold mb-3 text-gray-300">Дата (опционально)</label>
+                                    <input
+                                        type="date"
+                                        className="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-2xl text-white focus:border-blue-500 outline-none transition-all"
+                                        value={date}
+                                        onChange={(e) => setDate(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block font-semibold mb-3 text-gray-300">Локация (опционально)</label>
+                                    <input
+                                        type="text"
+                                        className="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-2xl text-white placeholder-gray-400 focus:border-blue-500 outline-none transition-all"
+                                        value={location}
+                                        onChange={(e) => setLocation(e.target.value)}
+                                        placeholder="Например: Корт №1"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block font-semibold mb-3 text-gray-300">Количество пар</label>
+                                    <select
+                                        className="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-2xl text-white focus:border-blue-500 outline-none transition-all"
+                                        value={numPairs}
+                                        onChange={(e) => setNumPairs(parseInt(e.target.value))}
+                                    >
+                                        <option value={4}>4 пары</option>
+                                        <option value={8}>8 пар</option>
+                                        <option value={12}>12 пар</option>
+                                        <option value={16}>16 пар</option>
+                                        <option value={20}>20 пар</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block font-semibold mb-3 text-gray-300">Кортов</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="10"
+                                        className="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-2xl text-white focus:border-blue-500 outline-none transition-all"
+                                        value={courts}
+                                        onChange={(e) => setCourts(parseInt(e.target.value))}
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="font-bold text-xl mb-4 text-white">Пары участников</h3>
+                                <p className="text-gray-400 text-sm mb-4">Начните вводить имя игрока для автозаполнения</p>
+                                <div className="space-y-3 max-h-96 overflow-y-auto p-2">
+                                    {pairs.map((pair, idx) => (
+                                        <div key={pair.id} className="flex gap-3 items-start">
+                                            <span className="font-semibold text-blue-400 min-w-[80px] mt-3">#{pair.number}</span>
+                                            
+                                            <PlayerSelectInput
+                                                value={pair.player1}
+                                                onChange={(val) => updatePair(idx, 'player1', val)}
+                                                placeholder="Игрок 1"
+                                                players={allPlayers}
+                                            />
+                                            
+                                            <span className="text-gray-500 mt-3">/</span>
+                                            
+                                            <PlayerSelectInput
+                                                value={pair.player2}
+                                                onChange={(val) => updatePair(idx, 'player2', val)}
+                                                placeholder="Игрок 2"
+                                                players={allPlayers}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 pt-4">
+                                <window.Button onClick={handleSubmit} className="flex-1">
+                                    Создать турнир
+                                </window.Button>
+                                <window.Button onClick={onCancel} variant="secondary">
+                                    Отмена
+                                </window.Button>
+                            </div>
                         </div>
                     </window.Card>
                 </div>
@@ -70,29 +270,59 @@
             const { user } = window.useAuth();
             const [creating, setCreating] = useState(false);
             const tournaments = window.useCollection('tournaments');
-            
+            const players = window.useCollection('players');
+
             const create = async (data) => {
                 const id = 't_' + Date.now();
-                await window.fb.doc('tournaments', id).set({ 
-                    id, ...data, status: 'upcoming', deleted: false, createdAt: new Date().toISOString(), 
-                    createdBy: user?.uid, registeredPlayers: [], pairs: [] 
+                await window.fb.doc('tournaments', id).set({
+                    id, 
+                    ...data, 
+                    deleted: false, 
+                    createdAt: new Date().toISOString(),
+                    createdBy: user?.uid,
+                    stage2Groups: null
                 });
-                // Перенаправление на абсолютный путь
                 window.location.href = `/NEW/tournament.html?id=${id}`;
             };
 
-            const del = async (id) => { if(confirm('Удалить?')) await window.fb.doc('tournaments', id).update({ deleted: true }); };
+            const del = async (id) => { 
+                if(confirm('Удалить турнир? Это действие необратимо.')) {
+                    await window.fb.doc('tournaments', id).update({ deleted: true }); 
+                }
+            };
 
-            if (creating) return <CreateTournament onSubmit={create} onCancel={() => setCreating(false)} />;
+            if (creating) return <CreateTournament onSubmit={create} onCancel={() => setCreating(false)} allPlayers={players} />;
 
             return (
                 <div className="space-y-8">
-                    <div className="flex justify-end"><window.Button onClick={() => setCreating(true)}>+ Создать</window.Button></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {tournaments.filter(t => !t.deleted).sort((a,b) => new Date(a.date) - new Date(b.date)).map(t => (
-                            <TournamentCard key={t.id} tournament={t} onDelete={del} canDelete={user && (t.createdBy === user.uid || user.email === CONFIG.ADMIN_EMAIL)} />
-                        ))}
+                    <div className="flex justify-between items-center">
+                        <h1 className="text-4xl font-bold text-white">Турниры</h1>
+                        <window.Button onClick={() => setCreating(true)}>+ Создать турнир</window.Button>
                     </div>
+                    
+                    {tournaments.filter(t => !t.deleted).length === 0 ? (
+                        <div className="text-center py-20">
+                            <div className="text-6xl mb-4">🎾</div>
+                            <h3 className="text-2xl font-bold text-white mb-2">Нет турниров</h3>
+                            <p className="text-gray-400 mb-6">Создайте первый турнир для начала</p>
+                            <window.Button onClick={() => setCreating(true)}>+ Создать турнир</window.Button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {tournaments
+                                .filter(t => !t.deleted)
+                                .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                .map(t => (
+                                    <TournamentCard 
+                                        key={t.id} 
+                                        tournament={t} 
+                                        onDelete={del} 
+                                        canDelete={user && (t.createdBy === user.uid || user.email === CONFIG.ADMIN_EMAIL)} 
+                                    />
+                                ))
+                            }
+                        </div>
+                    )}
                 </div>
             );
         }
