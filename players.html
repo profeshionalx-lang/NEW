@@ -1,40 +1,64 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Рейтинг игроков</title>
-  <link rel="stylesheet" href="css/styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grechka • Рейтинг</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style> * { font-family: 'Inter', sans-serif; } </style>
+    
+    <script src="js/config.js"></script>
+    <script type="text/babel" src="js/shared.js"></script>
 </head>
-<body>
-  <header class="site-header">
-    <h1><a href="index.html">Мой сайт турниров</a></h1>
-    <nav>
-      <a href="index.html">Турниры</a>
-      <a href="trainings.html">Тренировки</a>
-      <a href="players.html">Рейтинг игроков</a>
-    </nav>
-  </header>
+<body class="bg-black">
+    <div id="root"></div>
 
-  <main id="main">
-    <section id="players-section">
-      <h2>Рейтинг игроков</h2>
-      <div id="players-list" class="list"></div>
-    </section>
-  </main>
+    <script type="text/babel">
+        function PlayersView() {
+            const players = window.useCollection('players').sort((a, b) => (b.points || 0) - (a.points || 0));
 
-  <footer>
-    <small>© 2025</small>
-  </footer>
+            return (
+                <div>
+                    <h2 className="text-3xl font-bold mb-8">Рейтинг игроков</h2>
+                    <div className="space-y-4">
+                        {players.map((p, i) => (
+                            <window.Card key={p.id} className="p-5 flex items-center gap-6">
+                                <div className={window.cn('w-12 h-12 rounded-full flex items-center justify-center font-black text-xl', i === 0 ? 'bg-black text-white' : 'bg-gray-100 text-gray-500')}>{i + 1}</div>
+                                <window.Avatar src={p.photoURL} name={p.name} size="lg" />
+                                <div className="flex-1">
+                                    <div className="text-xl font-bold text-black">{p.name}</div>
+                                    <div className="text-gray-400 text-sm">{p.totalMatches || 0} матчей</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-3xl font-black text-black">{p.points || 0}</div>
+                                    <div className="text-gray-400 text-xs">очков</div>
+                                </div>
+                            </window.Card>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
 
-  <script src="js/config.js"></script>
-  <script src="js/shared.js"></script>
-  <script src="js/auth.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      await App.init();
-      App.renderPlayers('#players-list');
-    });
-  </script>
+        function App() {
+            const auth = window.useAuthState();
+            return (
+                <window.AuthContext.Provider value={auth}>
+                    <window.Layout active="players">
+                        <PlayersView />
+                    </window.Layout>
+                </window.AuthContext.Provider>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
 </body>
 </html>
