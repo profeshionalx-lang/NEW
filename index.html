@@ -3,72 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Grechka • Padel • Турниры</title>
+    <title>Grechka • Турниры</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style> * { font-family: 'Inter', sans-serif; } </style>
-    <script src="js/config.js"></script>
-    <script type="text/babel" src="js/shared.js"></script>
+    
+    <script src="/NEW/js/config.js"></script>
+    <script type="text/babel" src="/NEW/js/shared.js"></script>
 </head>
-<body class="bg-black text-white">
+<body class="bg-black">
     <div id="root"></div>
 
     <script type="text/babel">
-        // Компоненты TournamentCard, TournamentList, CreateTournament
+        const { useState } = React;
 
-        function TournamentCard({ tournament: t }) {
-            // Обратите внимание: мы используем ссылку <a> для перехода
+        function TournamentCard({ tournament: t, canDelete, onDelete }) {
+            const status = t.status === 'completed' ? 'completed' : (t.status === 'stage1' || t.status === 'stage2') ? 'active' : 'default';
+            // Внутренняя ссылка теперь тоже абсолютная
             return (
-                <a href={`tournament.html?tournament=${t.id}`} className="block no-underline">
-                    <window.Card className="p-6 cursor-pointer group hover:shadow-xl transition-all h-full">
-                        <window.Badge>{t.status}</window.Badge>
-                        <h3 className="text-2xl font-bold text-black my-4">{t.name}</h3>
-                        <div className="text-gray-500">📅 {window.formatDate(t.date)}</div>
+                <a href={`/NEW/tournament.html?id=${t.id}`} className="block no-underline">
+                    <window.Card className="p-6 cursor-pointer group hover:shadow-xl transition-all h-full relative">
+                        <div className="flex justify-between mb-4">
+                            <window.Badge variant={status}>{status === 'active' ? 'LIVE' : status === 'completed' ? 'Завершен' : 'Регистрация'}</window.Badge>
+                            {canDelete && <button onClick={(e) => {e.preventDefault(); onDelete(t.id)}} className="text-gray-300 hover:text-red-500 z-10">✕</button>}
+                        </div>
+                        <h3 className="text-2xl font-bold text-black mb-4">{t.name}</h3>
+                        <div className="text-gray-500 text-sm">📅 {window.formatDate(t.date)} • 📍 {t.location}</div>
+                        <div className="mt-6 pt-6 border-t flex justify-between">
+                            <span className="text-gray-500"><b className="text-black">{t.registeredPlayers?.length || 0}</b> / {t.maxPlayers}</span>
+                        </div>
                     </window.Card>
                 </a>
             );
         }
 
-        function TournamentList() {
-            const { user, isAdmin } = window.useAuth();
-            const [showCreate, setShowCreate] = React.useState(false);
-            const allTournaments = window.useCollection('tournaments');
-            
-            // Сюда вставьте логику CreateTournament из старого файла (CreateTournament component)
-            // Если showCreate === true, показываем форму создания
+        function CreateTournament({ onSubmit, onCancel }) {
+            const [form, setForm] = useState({ name: '', date: '', location: '', price: '', maxPlayers: 16, courts: 2, format: 'fixed' });
+            const u = (k, v) => setForm(f => ({ ...f, [k]: v }));
+            return (
+                <div className="max-w-2xl mx-auto">
+                    <window.Button variant="ghost" onClick={onCancel} className="mb-8">← Назад</window.Button>
+                    <window.Card className="p-8">
+                        <h2 className="text-3xl font-bold text-black mb-8">Создать турнир</h2>
+                        <div className="space-y-4">
+                            <window.Input label="Название" value={form.name} onChange={e => u('name', e.target.value)} />
+                            <window.Input label="Дата" type="date" value={form.date} onChange={e => u('date', e.target.value)} />
+                            <window.Input label="Локация" value={form.location} onChange={e => u('location', e.target.value)} />
+                            <div className="grid grid-cols-2 gap-4">
+                                <window.Input label="Цена" value={form.price} onChange={e => u('price', e.target.value)} />
+                                <window.Input label="Кортов" type="number" value={form.courts} onChange={e => u('courts', +e.target.value)} />
+                            </div>
+                            <window.Button onClick={() => onSubmit(form)} className="w-full mt-4">Создать</window.Button>
+                        </div>
+                    </window.Card>
+                </div>
+            );
+        }
 
-            const createTournament = async (data) => {
-                 const id = 'tournament_' + Date.now();
-                 await window.fb.doc('tournaments', id).set({ 
-                    id, ...data, status: 'upcoming', deleted: false, 
-                    createdAt: new Date().toISOString(), createdBy: user?.uid 
-                 });
-                 window.location.href = `tournament.html?tournament=${id}`;
+        function TournamentList() {
+            const { user } = window.useAuth();
+            const [creating, setCreating] = useState(false);
+            const tournaments = window.useCollection('tournaments');
+            
+            const create = async (data) => {
+                const id = 't_' + Date.now();
+                await window.fb.doc('tournaments', id).set({ 
+                    id, ...data, status: 'upcoming', deleted: false, createdAt: new Date().toISOString(), 
+                    createdBy: user?.uid, registeredPlayers: [], pairs: [] 
+                });
+                // Перенаправление на абсолютный путь
+                window.location.href = `/NEW/tournament.html?id=${id}`;
             };
 
-            // Если режим создания
-            if (showCreate) {
-                 // Тут верните компонент CreateTournament (нужно скопировать его код)
-                 // Передав onSubmit={createTournament}
-                 return (
-                     <div>
-                        <window.Button onClick={() => setShowCreate(false)}>Назад</window.Button>
-                        {/* Форма создания */}
-                     </div>
-                 );
-            }
+            const del = async (id) => { if(confirm('Удалить?')) await window.fb.doc('tournaments', id).update({ deleted: true }); };
+
+            if (creating) return <CreateTournament onSubmit={create} onCancel={() => setCreating(false)} />;
 
             return (
                 <div className="space-y-8">
-                    <div className="flex justify-end"><window.Button onClick={() => setShowCreate(true)}>+ Создать турнир</window.Button></div>
+                    <div className="flex justify-end"><window.Button onClick={() => setCreating(true)}>+ Создать</window.Button></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {allTournaments.filter(t => !t.deleted).map(t => (
-                            <TournamentCard key={t.id} tournament={t} />
+                        {tournaments.filter(t => !t.deleted).sort((a,b) => new Date(a.date) - new Date(b.date)).map(t => (
+                            <TournamentCard key={t.id} tournament={t} onDelete={del} canDelete={user && (t.createdBy === user.uid || user.email === CONFIG.ADMIN_EMAIL)} />
                         ))}
                     </div>
                 </div>
@@ -79,9 +101,7 @@
             const auth = window.useAuthState();
             return (
                 <window.AuthContext.Provider value={auth}>
-                    <window.Layout activePage="tournaments">
-                        <TournamentList />
-                    </window.Layout>
+                    <window.Layout activePage="tournaments"><TournamentList /></window.Layout>
                 </window.AuthContext.Provider>
             );
         }
