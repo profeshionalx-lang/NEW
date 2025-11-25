@@ -1,25 +1,37 @@
 // js/config.js
-// Поместите сюда вашу конфигурацию Firebase.
-// Этот файл подключается первым, остальные модули используют window.APP_CONFIG или App.init().
-
-window.APP_CONFIG = {
-  // Пример структуры — замените реальными значениями
-  firebase: {
-    apiKey: "<YOUR_API_KEY>",
-    authDomain: "<YOUR_AUTH_DOMAIN>",
-    projectId: "<YOUR_PROJECT_ID>",
-    storageBucket: "<YOUR_STORAGE_BUCKET>",
-    messagingSenderId: "<YOUR_MESSAGING_SENDER_ID>",
-    appId: "<YOUR_APP_ID>"
-  },
-  // опционально: URL API или endpoints
-  apiBaseUrl: ""
+const CONFIG = {
+    ADMIN_EMAIL: 'profeshionalx@gmail.com',
+    FIREBASE: {
+        apiKey: "AIzaSyBVKxWXOxVq_9vIpRr7eQCEJOPv7PKImg0",
+        authDomain: "grechka-6bdb7.firebaseapp.com",
+        projectId: "grechka-6bdb7",
+        storageBucket: "grechka-6bdb7.firebasestorage.app",
+        messagingSenderId: "746199017331",
+        appId: "1:746199017331:web:2e4e08023cb89484fd4706"
+    },
+    GOOGLE_CALENDAR: {
+        calendarId: 'AcZssZ39bALgvffeZCDnD-PVGXCvm-xQd8rq1opxYDVAhGa8bdMc4q1IN81jwva0c3HVTP2SFZIPOzu_',
+        apiKey: "AIzaSyBVKxWXOxVq_9vIpRr7eQCEJOPv7PKImg0"
+    }
 };
 
-// Функция инициализации (если используете Firebase, вставьте инициализацию сюда)
-window.initPlatform = function() {
-  // Если используете Firebase, инициализируйте здесь:
-  // firebase.initializeApp(window.APP_CONFIG.firebase);
-  // и т.д.
-  return Promise.resolve();
-};
+(function initFirebase() {
+    if (typeof firebase === 'undefined') return;
+    if (!firebase.apps.length) firebase.initializeApp(CONFIG.FIREBASE);
+    
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    const googleProvider = new firebase.auth.GoogleAuthProvider();
+    googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
+    
+    window.fb = {
+        db, auth, googleProvider,
+        appleProvider: new firebase.auth.OAuthProvider('apple.com'),
+        collection: (name) => db.collection(name),
+        doc: (col, id) => db.collection(col).doc(id),
+        increment: firebase.firestore.FieldValue.increment,
+        arrayUnion: firebase.firestore.FieldValue.arrayUnion,
+        arrayRemove: firebase.firestore.FieldValue.arrayRemove
+    };
+    window.dispatchEvent(new Event('firebaseReady'));
+})();
