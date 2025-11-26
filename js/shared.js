@@ -62,7 +62,12 @@ window.useAuthState = function() {
             const snap = await ref.get();
             if (snap.exists) setProfile(snap.data());
             else {
-                const newProfile = { id: u.uid, name: u.displayName, email: u.email, photoURL: u.photoURL, points: 0, totalMatches: 0, wins: 0 };
+                const newProfile = { 
+                    id: u.uid, name: u.displayName || 'Игрок', email: u.email, 
+                    photoURL: u.photoURL, points: 0, totalMatches: 0, wins: 0, losses: 0,
+                    tournamentsPlayed: 0, gamesWon: 0, gamesLost: 0,
+                    createdAt: new Date().toISOString()
+                };
                 await ref.set(newProfile);
                 setProfile(newProfile);
             }
@@ -74,9 +79,125 @@ window.useAuthState = function() {
     return { user, profile, isAdmin, login, logout };
 };
 
-// --- Компоненты UI (глобальные) ---
+// --- Google Calendar API функции ---
+window.getGoogleCalendarAccessToken = async function(user) {
+    const credential = await user.getIdTokenResult();
+    return credential.token;
+};
+
+window.fetchGoogleCalendarEvents = async function(accessToken, timeMin, timeMax) {
+    try {
+        const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
+        url.searchParams.append('key', CONFIG.GOOGLE_CALENDAR.apiKey);
+        url.searchParams.append('timeMin', timeMin);
+        url.searchParams.append('timeMax', timeMax);
+        url.searchParams.append('singleEvents', 'true');
+        url.searchParams.append('orderBy', 'startTime');
+        url.searchParams.append('maxResults', '50');
+
+        const response = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+
+        if (!response.ok) throw new Error(`Calendar API error: ${response.status}`);
+        const data = await response.json();
+        return data.items || [];
+    } catch (error) {
+        console.error('Error fetching calendar events:', error);
+        return [];
+    }
+};
+
+window.parseCalendarEvent = function(event) {
+    const start = event.start.dateTime || event.start.date;
+    const datetime = new Date(start).toISOString();
+    
+    return {
+        title: event.summary || 'Тренировка',
+        datetime,
+        location: event.location || 'Grecha • 31',
+        price: '10 euro',
+        maxParticipants: 8,
+        description: event.description || '🎾 Тренировка по падел-теннису',
+        source: 'google_calendar',
+        googleEventId: event.id
+    };
+};
+
+// --- Турнирная логика ---
+window.generateGroups = function(pairs, courts) {
+    const courtsArr = Array(courts).fill().map((_, i) => ({ id: i + 1, name: `Корт ${i + 1}` }));
+    return Array(Math.ceil(pairs.length / 4)).fill().map((_, i) => {
+        const gPairs = pairs.slice(i * 4, (i + 1) * 4);
+        const [c1, c2] = [courtsArr[0], courtsArr[1] || courtsArr[0]];
+        const matches = gPairs.length === 4 ? [
+            [0, 1, c1], [2, 3, c2], [0, 2, c1], [1, 3, c2], [0, 3, c1], [1, 2, c2]
+        ].map(([a, b, court], r) => ({ 
+            round: Math.floor(r / 2) + 1, 
+            pair1: gPairs[a], 
+            pair2: gPairs[b], 
+            court, 
+            set1p1: '', 
+            set1p2: '' 
+        })) : [];
+        
+        return {
+            id: i, 
+            name: String.fromCharCode(65 + i), 
+            matches,
+            pairs: gPairs.map(p => ({ 
+                ...p, 
+                points: 0, 
+                gamesDiff: 0, 
+                gamesWon: 0, 
+                gamesLost: 0, 
+                played: 0, 
+                won: 0, 
+                lost: 0 
+            }))
+        };
+    });
+};
+
+window.recalcGroup = function(group) {
+    group.pairs.forEach(p => Object.assign(p, { 
+        played: 0, points: 0, gamesWon: 0, gamesLost: 0, gamesDiff: 0, won: 0, lost: 0 
+    }));
+    
+    group.matches.forEach(m => {
+        if (m.set1p1 === '' || m.set1p2 === '') return;
+        const [s1, s2] = [parseInt(m.set1p1) || 0, parseInt(m.set1p2) || 0];
+        const [p1, p2] = [
+            group.pairs.find(p => p.id === m.pair1.id), 
+            group.pairs.find(p => p.id === m.pair2.id)
+        ];
+        if (!p1 || !p2) return;
+        
+        p1.played++; p2.played++;
+        p1.gamesWon += s1; p1.gamesLost += s2;
+        p2.gamesWon += s2; p2.gamesLost += s1;
+        
+        if (s1 > s2) { p1.won++; p1.points += 3; p2.lost++; }
+        else if (s2 > s1) { p2.won++; p2.points += 3; p1.lost++; }
+        
+        p1.gamesDiff = p1.gamesWon - p1.gamesLost;
+        p2.gamesDiff = p2.gamesWon - p2.gamesLost;
+    });
+    
+    group.pairs.sort((a, b) => 
+        b.points - a.points || 
+        b.gamesDiff - a.gamesDiff || 
+        b.gamesWon - a.gamesWon
+    );
+};
+
+// --- UI Компоненты ---
 window.Card = ({ children, className, dark, ...props }) => (
-    <div className={window.cn(dark ? 'bg-white/5 border border-white/10' : 'bg-white', 'rounded-3xl', className)} {...props}>{children}</div>
+    <div className={window.cn(
+        dark ? 'bg-white/5 border border-white/10' : 'bg-white', 
+        'rounded-3xl', 
+        className
+    )} {...props}>{children}</div>
 );
 
 window.Button = ({ children, variant = 'primary', className, ...props }) => {
@@ -86,75 +207,318 @@ window.Button = ({ children, variant = 'primary', className, ...props }) => {
         danger: 'border-2 border-red-500 text-red-500 hover:bg-red-50',
         ghost: 'text-white/40 hover:text-white'
     };
-    return <button className={window.cn('px-6 py-3 rounded-full font-semibold transition-all', styles[variant], className)} {...props}>{children}</button>;
+    return (
+        <button 
+            className={window.cn(
+                'px-6 py-3 rounded-full font-semibold transition-all', 
+                styles[variant], 
+                className
+            )} 
+            {...props}
+        >
+            {children}
+        </button>
+    );
 };
 
 window.Input = ({ label, className, ...props }) => (
     <div>
         {label && <label className="block text-sm font-medium text-gray-500 mb-2">{label}</label>}
-        <input className={window.cn('w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-black outline-none', className)} {...props} />
+        <input 
+            className={window.cn(
+                'w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-black placeholder-gray-400',
+                'focus:border-black focus:ring-1 focus:ring-black outline-none transition-all', 
+                className
+            )} 
+            {...props} 
+        />
     </div>
 );
 
-window.Avatar = ({ src, name, size = 'md' }) => {
-    const s = { sm: 'w-8 h-8 text-xs', md: 'w-10 h-10', lg: 'w-14 h-14 text-xl' };
-    return src ? <img src={src} className={`rounded-full ${s[size]}`} /> : <div className={`rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold ${s[size]}`}>{name?.[0]}</div>;
+window.Avatar = ({ src, name, size = 'md', className }) => {
+    const sizes = { 
+        sm: 'w-8 h-8 text-sm', 
+        md: 'w-10 h-10', 
+        lg: 'w-14 h-14 text-xl', 
+        xl: 'w-24 h-24 text-4xl' 
+    };
+    return src ? (
+        <img src={src} alt="" className={window.cn('rounded-full', sizes[size], className)} />
+    ) : (
+        <div className={window.cn(
+            'rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold', 
+            sizes[size], 
+            className
+        )}>
+            {name?.[0] || '?'}
+        </div>
+    );
 };
 
 window.Modal = ({ children, onClose }) => (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div 
+        className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" 
+        onClick={onClose}
+    >
         <div onClick={e => e.stopPropagation()}>{children}</div>
     </div>
 );
 
 window.Badge = ({ children, variant = 'default' }) => {
-    const s = { default: 'bg-gray-100 text-gray-700', active: 'bg-black text-white', completed: 'bg-gray-200 text-gray-600' };
-    return <span className={window.cn('px-3 py-1 rounded-full text-xs font-semibold', s[variant])}>{children}</span>;
+    const styles = {
+        default: 'bg-gray-100 text-gray-700',
+        active: 'bg-black text-white',
+        completed: 'bg-gray-200 text-gray-600'
+    };
+    return (
+        <span className={window.cn(
+            'px-3 py-1 rounded-full text-xs font-semibold', 
+            styles[variant]
+        )}>
+            {children}
+        </span>
+    );
 };
 
-// --- Модальное окно входа ---
+window.Tab = ({ active, children, ...props }) => (
+    <button 
+        className={window.cn(
+            'px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all',
+            active ? 'bg-white text-black' : 'text-white/40 hover:text-white'
+        )} 
+        {...props}
+    >
+        {children}
+    </button>
+);
+
+window.InfoRow = ({ icon, label, value }) => (
+    <div className="flex items-center gap-4">
+        <span className="text-2xl">{icon}</span>
+        <div>
+            <div className="text-xs text-gray-400">{label}</div>
+            <div className="text-lg font-medium text-black">{value}</div>
+        </div>
+    </div>
+);
+
+window.StatBox = ({ label, value }) => (
+    <div className="text-center p-6 bg-gray-50 rounded-2xl">
+        <div className="text-4xl font-black text-black">{value}</div>
+        <div className="text-gray-400 text-sm">{label}</div>
+    </div>
+);
+
+// --- Модальные окна ---
 window.AuthModal = ({ onClose }) => {
     const { login } = window.useAuth();
     const handle = async (p) => { await login(p); onClose(); };
     return (
         <window.Modal onClose={onClose}>
-            <window.Card className="p-10 max-w-md w-full text-center">
-                <h3 className="text-3xl font-bold text-black mb-8">Вход</h3>
-                <div className="space-y-4">
-                    <button onClick={() => handle('google')} className="w-full bg-gray-100 p-4 rounded-2xl font-bold text-black">Войти через Google</button>
-                    <button onClick={() => handle('apple')} className="w-full bg-black p-4 rounded-2xl font-bold text-white">Войти через Apple</button>
+            <window.Card className="p-10 max-w-md w-full">
+                <div className="text-center mb-10">
+                    <h3 className="text-3xl font-bold text-black mb-2">Добро пожаловать</h3>
+                    <p className="text-gray-500">Войдите, чтобы записаться на турнир</p>
                 </div>
-                <button onClick={onClose} className="mt-6 text-gray-400">Отмена</button>
+                <div className="space-y-4">
+                    <button 
+                        onClick={() => handle('google')} 
+                        className="w-full bg-gray-100 hover:bg-gray-200 text-black px-6 py-4 rounded-2xl font-semibold transition-all flex items-center justify-center gap-3"
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        Войти через Google
+                    </button>
+                    <button 
+                        onClick={() => handle('apple')} 
+                        className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-all flex items-center justify-center gap-3"
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                        </svg>
+                        Войти через Apple
+                    </button>
+                </div>
+                <button onClick={onClose} className="w-full mt-8 text-gray-400 hover:text-black transition-all text-sm">
+                    Отмена
+                </button>
             </window.Card>
         </window.Modal>
     );
 };
 
-// --- Основной Layout (Шапка) ---
+window.ScoreModal = ({ match, onSave, onClose }) => {
+    const [set1p1, setSet1p1] = useState(match.set1p1);
+    const [set1p2, setSet1p2] = useState(match.set1p2);
+
+    const handleSave = () => {
+        if (set1p1 === '' || set1p2 === '') { 
+            alert('Введите счет'); 
+            return; 
+        }
+        onSave({ set1p1, set1p2 });
+    };
+
+    return (
+        <window.Modal onClose={onClose}>
+            <window.Card dark className="p-8 max-w-md w-full border border-gray-700">
+                <h3 className="text-2xl font-bold text-white mb-3">Результат матча</h3>
+                <p className="mb-6 text-gray-300">
+                    <strong>#{match.pair1?.number}</strong> vs <strong>#{match.pair2?.number}</strong>
+                </p>
+                
+                <div className="mb-8">
+                    <label className="block font-bold mb-3 text-white">Счет:</label>
+                    <div className="flex items-center gap-4 justify-center">
+                        <input 
+                            type="number" 
+                            min="0" 
+                            max="20"
+                            className="w-20 h-20 p-2 bg-gray-700 border-2 border-blue-500 rounded-2xl text-center text-white text-3xl font-bold focus:border-blue-400 outline-none"
+                            value={set1p1} 
+                            onChange={(e) => setSet1p1(e.target.value)}
+                        />
+                        <span className="text-white text-4xl font-bold">:</span>
+                        <input 
+                            type="number" 
+                            min="0" 
+                            max="20"
+                            className="w-20 h-20 p-2 bg-gray-700 border-2 border-purple-500 rounded-2xl text-center text-white text-3xl font-bold focus:border-purple-400 outline-none"
+                            value={set1p2} 
+                            onChange={(e) => setSet1p2(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex gap-4">
+                    <window.Button 
+                        onClick={handleSave} 
+                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:shadow-2xl"
+                    >
+                        Сохранить
+                    </window.Button>
+                    <window.Button variant="secondary" onClick={onClose}>
+                        Отмена
+                    </window.Button>
+                </div>
+            </window.Card>
+        </window.Modal>
+    );
+};
+
+window.CourtEditModal = ({ match, onSave, onClose }) => {
+    let currentCourtName = 'Корт';
+    if (typeof match.court === 'object' && match.court !== null) {
+        currentCourtName = match.court.name || `Корт ${match.court.id || ''}`;
+    } else if (typeof match.court === 'number' || typeof match.court === 'string') {
+        currentCourtName = `Корт ${match.court}`;
+    }
+    
+    const [courtName, setCourtName] = useState(currentCourtName);
+
+    const handleSave = () => { 
+        if (courtName.trim()) onSave(courtName.trim()); 
+    };
+
+    return (
+        <window.Modal onClose={onClose}>
+            <window.Card dark className="p-8 max-w-md w-full border border-gray-700">
+                <h3 className="text-2xl font-bold text-white mb-2">Редактировать корт</h3>
+                <p className="text-gray-400 mb-6">Измените название корта для этого матча</p>
+                
+                <input 
+                    type="text"
+                    value={courtName}
+                    onChange={(e) => setCourtName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                    className="w-full p-4 bg-gray-700 border-2 border-gray-600 rounded-2xl text-white placeholder-gray-400 focus:border-green-500 outline-none transition-all text-lg mb-6"
+                    placeholder="Например: Центральный корт"
+                    autoFocus
+                />
+
+                <div className="flex gap-4">
+                    <window.Button 
+                        onClick={handleSave} 
+                        className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-2xl"
+                    >
+                        Сохранить
+                    </window.Button>
+                    <window.Button variant="secondary" onClick={onClose}>
+                        Отмена
+                    </window.Button>
+                </div>
+            </window.Card>
+        </window.Modal>
+    );
+};
+
+// --- Основной Layout ---
 window.Layout = ({ children, activePage }) => {
     const auth = window.useAuth();
     const [showAuth, setShowAuth] = useState(false);
     
-    useEffect(() => { if (auth) auth.showAuth = () => setShowAuth(true); }, [auth]);
+    useEffect(() => { 
+        if (auth) auth.showAuth = () => setShowAuth(true); 
+    }, [auth]);
 
     return (
         <div className="min-h-screen bg-black text-white">
             <header className="border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    {/* АБСОЛЮТНЫЕ ПУТИ ВНУТРИ JS НЕ НУЖНЫ, НО НУЖНО УЧЕСТЬ, ЧТО МЫ В ПОДДИРЕКТОРИИ /NEW/ */}
-                    <a href="/NEW/index.html" className="text-2xl font-bold no-underline text-white">Grechka <span className="text-white/40">•</span> Padel</a>
+                    <a href="/NEW/index.html" className="text-2xl font-bold no-underline text-white hover:opacity-80 transition-opacity">
+                        Grechka <span className="text-white/40">•</span> Padel
+                    </a>
                     <nav className="hidden md:flex gap-8">
-                        <a href="/NEW/index.html" className={activePage === 'tournaments' ? 'text-white' : 'text-white/40'}>Турниры</a>
-                        <a href="/NEW/trainings.html" className={activePage === 'trainings' ? 'text-white' : 'text-white/40'}>Тренировки</a>
-                        <a href="/NEW/players.html" className={activePage === 'players' ? 'text-white' : 'text-white/40'}>Рейтинг</a>
+                        <a 
+                            href="/NEW/index.html" 
+                            className={window.cn(
+                                'text-sm font-medium transition-all no-underline',
+                                activePage === 'tournaments' ? 'text-white' : 'text-white/40 hover:text-white/70'
+                            )}
+                        >
+                            Турниры
+                        </a>
+                        <a 
+                            href="/NEW/trainings.html" 
+                            className={window.cn(
+                                'text-sm font-medium transition-all no-underline',
+                                activePage === 'trainings' ? 'text-white' : 'text-white/40 hover:text-white/70'
+                            )}
+                        >
+                            Тренировки
+                        </a>
+                        <a 
+                            href="/NEW/players.html" 
+                            className={window.cn(
+                                'text-sm font-medium transition-all no-underline',
+                                activePage === 'players' ? 'text-white' : 'text-white/40 hover:text-white/70'
+                            )}
+                        >
+                            Рейтинг
+                        </a>
                     </nav>
                     <div className="flex items-center gap-4">
                         {auth.user ? (
                             <div className="flex gap-3 items-center">
+                                <div className="hidden sm:block text-right">
+                                    <div className="text-sm font-medium">{auth.user.displayName}</div>
+                                    {auth.isAdmin && <div className="text-xs text-white/40">Admin</div>}
+                                </div>
                                 <window.Avatar src={auth.user.photoURL} name={auth.user.displayName} />
-                                <button onClick={auth.logout} className="text-white/40 hover:text-white text-sm">Выйти</button>
+                                <button 
+                                    onClick={auth.logout} 
+                                    className="text-white/40 hover:text-white text-sm transition-all"
+                                >
+                                    Выйти
+                                </button>
                             </div>
-                        ) : <window.Button onClick={() => setShowAuth(true)}>Войти</window.Button>}
+                        ) : (
+                            <window.Button onClick={() => setShowAuth(true)}>Войти</window.Button>
+                        )}
                     </div>
                 </div>
             </header>

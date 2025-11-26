@@ -11,7 +11,8 @@ const CONFIG = {
     },
     GOOGLE_CALENDAR: {
         calendarId: 'AcZssZ39bALgvffeZCDnD-PVGXCvm-xQd8rq1opxYDVAhGa8bdMc4q1IN81jwva0c3HVTP2SFZIPOzu_',
-        apiKey: "AIzaSyBVKxWXOxVq_9vIpRr7eQCEJOPv7PKImg0"
+        apiKey: "AIzaSyBVKxWXOxVq_9vIpRr7eQCEJOPv7PKImg0",
+        bookingUrl: 'https://calendar.google.com/calendar/u/0/appointments/schedules/AcZssZ39bALgvffeZCDnD-PVGXCvm-xQd8rq1opxYDVAhGa8bdMc4q1IN81jwva0c3HVTP2SFZIPOzu_'
     }
 };
 
@@ -22,6 +23,8 @@ const CONFIG = {
     const db = firebase.firestore();
     const auth = firebase.auth();
     const googleProvider = new firebase.auth.GoogleAuthProvider();
+    
+    // КРИТИЧНО: Добавляем Calendar scope
     googleProvider.addScope('https://www.googleapis.com/auth/calendar.readonly');
     
     window.fb = {

@@ -28,10 +28,23 @@
             const [form, setForm] = useState({ title: 'Тренировка', datetime: '', location: 'Grecha', price: '10 euro', maxParticipants: 8 });
             
             const submit = async () => {
-                const id = 'tr_' + Date.now();
-                await window.fb.doc('trainings', id).set({ id, ...form, participants: [], deleted: false, createdBy: user.uid });
-                onClose();
-            };
+    if (!form.datetime) {
+        alert('Укажите дату и время');
+        return;
+    }
+    
+    const id = 'training_' + Date.now();
+    await window.fb.doc('trainings', id).set({ 
+        id, 
+        ...form, 
+        participants: [], 
+        deleted: false, 
+        createdBy: user?.uid || null,  // ИСПРАВЛЕНО: добавлен || null
+        createdAt: new Date().toISOString(),
+        source: 'manual'
+    });
+    onClose();
+};
 
             return (
                 <window.Modal onClose={onClose}>

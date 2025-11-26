@@ -24,19 +24,39 @@
         const { useState } = React;
 
         function TournamentCard({ tournament: t, canDelete, onDelete }) {
-            const status = t.status === 'completed' ? 'completed' : (t.status === 'stage1' || t.status === 'stage2') ? 'active' : 'default';
-            // Внутренняя ссылка теперь тоже абсолютная
+            const status = t.status === 'completed' ? 'completed' : 
+                          (t.status === 'stage1' || t.status === 'stage2') ? 'active' : 'default';
             return (
                 <a href={`/NEW/tournament.html?id=${t.id}`} className="block no-underline">
                     <window.Card className="p-6 cursor-pointer group hover:shadow-xl transition-all h-full relative">
                         <div className="flex justify-between mb-4">
-                            <window.Badge variant={status}>{status === 'active' ? 'LIVE' : status === 'completed' ? 'Завершен' : 'Регистрация'}</window.Badge>
-                            {canDelete && <button onClick={(e) => {e.preventDefault(); onDelete(t.id)}} className="text-gray-300 hover:text-red-500 z-10">✕</button>}
+                            <window.Badge variant={status}>
+                                {status === 'active' ? 'LIVE' : status === 'completed' ? 'Завершен' : 'Регистрация'}
+                            </window.Badge>
+                            {canDelete && (
+                                <button 
+                                    onClick={(e) => {e.preventDefault(); onDelete(t.id)}} 
+                                    className="text-gray-300 hover:text-red-500 z-10 transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                    ✕
+                                </button>
+                            )}
                         </div>
                         <h3 className="text-2xl font-bold text-black mb-4">{t.name}</h3>
-                        <div className="text-gray-500 text-sm">📅 {window.formatDate(t.date)} • 📍 {t.location}</div>
-                        <div className="mt-6 pt-6 border-t flex justify-between">
-                            <span className="text-gray-500"><b className="text-black">{t.registeredPlayers?.length || 0}</b> / {t.maxPlayers}</span>
+                        <div className="space-y-2 text-sm text-gray-500">
+                            {t.date && <div>📅 {window.formatDate(t.date)}</div>}
+                            {t.location && <div>📍 {t.location}</div>}
+                            {t.price && <div>💰 {t.price}</div>}
+                        </div>
+                        <div className="mt-6 pt-6 border-t border-gray-100 flex justify-between items-center">
+                            <div className="text-gray-500">
+                                <span className="text-2xl font-bold text-black">
+                                    {t.registeredPlayers?.length || 0}
+                                </span> / {t.maxPlayers || '∞'}
+                            </div>
+                            <div className="text-gray-300 group-hover:text-black group-hover:translate-x-1 transition-all">
+                                →
+                            </div>
                         </div>
                     </window.Card>
                 </a>
@@ -44,22 +64,135 @@
         }
 
         function CreateTournament({ onSubmit, onCancel }) {
-            const [form, setForm] = useState({ name: '', date: '', location: '', price: '', maxPlayers: 16, courts: 2, format: 'fixed' });
+            const [form, setForm] = useState({ 
+                name: '', 
+                date: '', 
+                time: '',
+                location: '', 
+                price: '', 
+                maxPlayers: 16, 
+                courts: 2, 
+                format: 'fixed',
+                description: ''
+            });
             const u = (k, v) => setForm(f => ({ ...f, [k]: v }));
+            
             return (
                 <div className="max-w-2xl mx-auto">
-                    <window.Button variant="ghost" onClick={onCancel} className="mb-8">← Назад</window.Button>
+                    <window.Button variant="ghost" onClick={onCancel} className="mb-8">
+                        ← Назад
+                    </window.Button>
                     <window.Card className="p-8">
-                        <h2 className="text-3xl font-bold text-black mb-8">Создать турнир</h2>
-                        <div className="space-y-4">
-                            <window.Input label="Название" value={form.name} onChange={e => u('name', e.target.value)} />
-                            <window.Input label="Дата" type="date" value={form.date} onChange={e => u('date', e.target.value)} />
-                            <window.Input label="Локация" value={form.location} onChange={e => u('location', e.target.value)} />
-                            <div className="grid grid-cols-2 gap-4">
-                                <window.Input label="Цена" value={form.price} onChange={e => u('price', e.target.value)} />
-                                <window.Input label="Кортов" type="number" value={form.courts} onChange={e => u('courts', +e.target.value)} />
+                        <h2 className="text-3xl font-bold text-black mb-8">Новый турнир</h2>
+                        <div className="space-y-6">
+                            <window.Input 
+                                label="Название" 
+                                value={form.name} 
+                                onChange={e => u('name', e.target.value)} 
+                                placeholder="Sunday Cup"
+                            />
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-3">Формат</label>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {[
+                                        ['fixed', '👫 Фиксированные партнёры', 'Игроки играют в постоянных парах'],
+                                        ['rotating', '🔄 Со сменой партнёра', 'Партнёры меняются каждый матч']
+                                    ].map(([val, title, desc]) => (
+                                        <button 
+                                            key={val} 
+                                            type="button" 
+                                            onClick={() => u('format', val)} 
+                                            className={window.cn(
+                                                'p-4 rounded-2xl border-2 text-left transition-all',
+                                                form.format === val 
+                                                    ? 'border-black bg-black text-white' 
+                                                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                                            )}
+                                        >
+                                            <div className="font-semibold mb-1">{title}</div>
+                                            <div className="text-sm opacity-70">{desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <window.Button onClick={() => onSubmit(form)} className="w-full mt-4">Создать</window.Button>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <window.Input 
+                                    label="Дата" 
+                                    type="date" 
+                                    value={form.date} 
+                                    onChange={e => u('date', e.target.value)} 
+                                />
+                                <window.Input 
+                                    label="Время" 
+                                    type="time" 
+                                    value={form.time} 
+                                    onChange={e => u('time', e.target.value)} 
+                                />
+                            </div>
+
+                            <window.Input 
+                                label="Локация" 
+                                value={form.location} 
+                                onChange={e => u('location', e.target.value)} 
+                                placeholder="Адрес клуба"
+                            />
+
+                            <div className="grid grid-cols-3 gap-6">
+                                <window.Input 
+                                    label="Цена" 
+                                    value={form.price} 
+                                    onChange={e => u('price', e.target.value)} 
+                                    placeholder="20 euro"
+                                />
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-500 mb-2">Участников</label>
+                                    <select 
+                                        className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-black" 
+                                        value={form.maxPlayers} 
+                                        onChange={e => u('maxPlayers', +e.target.value)}
+                                    >
+                                        {[8, 12, 16, 24, 32].map(n => <option key={n} value={n}>{n}</option>)}
+                                    </select>
+                                </div>
+                                <window.Input 
+                                    label="Кортов" 
+                                    type="number" 
+                                    min="1" 
+                                    max="10" 
+                                    value={form.courts} 
+                                    onChange={e => u('courts', +e.target.value)} 
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-500 mb-2">Описание</label>
+                                <textarea
+                                    className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-black placeholder-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all resize-none"
+                                    rows="4"
+                                    value={form.description}
+                                    onChange={e => u('description', e.target.value)}
+                                    placeholder="Дополнительная информация о турнире..."
+                                />
+                            </div>
+
+                            <div className="flex gap-4 pt-8">
+                                <window.Button 
+                                    onClick={() => onSubmit(form)} 
+                                    disabled={!form.name || !form.date || !form.location}
+                                    className="flex-1 disabled:opacity-30"
+                                >
+                                    Создать
+                                </window.Button>
+                                <window.Button 
+                                    variant="secondary" 
+                                    onClick={onCancel} 
+                                    className="bg-gray-100 text-black hover:bg-gray-200"
+                                >
+                                    Отмена
+                                </window.Button>
+                            </div>
                         </div>
                     </window.Card>
                 </div>
@@ -67,32 +200,91 @@
         }
 
         function TournamentList() {
-            const { user } = window.useAuth();
+            const { user, isAdmin } = window.useAuth();
             const [creating, setCreating] = useState(false);
-            const tournaments = window.useCollection('tournaments');
+            const allTournaments = window.useCollection('tournaments');
+            const tournaments = allTournaments.filter(t => !t.deleted)
+                .sort((a, b) => new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt));
             
+            const groups = {
+                upcoming: tournaments.filter(t => t.status === 'upcoming'),
+                active: tournaments.filter(t => t.status === 'stage1' || t.status === 'stage2'),
+                completed: tournaments.filter(t => t.status === 'completed')
+            };
+
             const create = async (data) => {
                 const id = 't_' + Date.now();
                 await window.fb.doc('tournaments', id).set({ 
-                    id, ...data, status: 'upcoming', deleted: false, createdAt: new Date().toISOString(), 
-                    createdBy: user?.uid, registeredPlayers: [], pairs: [] 
+                    id, 
+                    ...data, 
+                    status: 'upcoming', 
+                    deleted: false, 
+                    createdAt: new Date().toISOString(), 
+                    createdBy: user?.uid || null,  // ИСПРАВЛЕНО: было user?.uid
+                    registeredPlayers: [], 
+                    pairs: [] 
                 });
-                // Перенаправление на абсолютный путь
                 window.location.href = `/NEW/tournament.html?id=${id}`;
             };
 
-            const del = async (id) => { if(confirm('Удалить?')) await window.fb.doc('tournaments', id).update({ deleted: true }); };
+            const del = async (id) => { 
+                if(confirm('Удалить?')) {
+                    await window.fb.doc('tournaments', id).update({ deleted: true }); 
+                }
+            };
 
-            if (creating) return <CreateTournament onSubmit={create} onCancel={() => setCreating(false)} />;
-
-            return (
-                <div className="space-y-8">
-                    <div className="flex justify-end"><window.Button onClick={() => setCreating(true)}>+ Создать</window.Button></div>
+            const Section = ({ title, items, pulse, dim }) => items.length > 0 && (
+                <section>
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className={window.cn(
+                            'w-2 h-2 rounded-full', 
+                            dim ? 'bg-white/30' : 'bg-white', 
+                            pulse && 'animate-pulse'
+                        )} />
+                        <h3 className={window.cn(
+                            'text-sm font-medium tracking-widest uppercase',
+                            dim ? 'text-white/40' : 'text-white/60'
+                        )}>
+                            {title}
+                        </h3>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {tournaments.filter(t => !t.deleted).sort((a,b) => new Date(a.date) - new Date(b.date)).map(t => (
-                            <TournamentCard key={t.id} tournament={t} onDelete={del} canDelete={user && (t.createdBy === user.uid || user.email === CONFIG.ADMIN_EMAIL)} />
+                        {items.map(t => (
+                            <TournamentCard 
+                                key={t.id} 
+                                tournament={t} 
+                                onDelete={del} 
+                                canDelete={user && (user.email === CONFIG.ADMIN_EMAIL || t.createdBy === user.uid)} 
+                            />
                         ))}
                     </div>
+                </section>
+            );
+
+            if (creating) {
+                return <CreateTournament onSubmit={create} onCancel={() => setCreating(false)} />;
+            }
+
+            return (
+                <div className="space-y-12">
+                    <div className="flex justify-end">
+                        <window.Button onClick={() => setCreating(true)}>
+                            + Создать турнир
+                        </window.Button>
+                    </div>
+                    
+                    {groups.upcoming.length === 0 && groups.active.length === 0 ? (
+                        <window.Card dark className="p-16 text-center">
+                            <div className="text-6xl mb-4 opacity-20">🎾</div>
+                            <p className="text-white/40">Нет предстоящих турниров</p>
+                        </window.Card>
+                    ) : (
+                        <>
+                            <Section title="ПРЕДСТОЯЩИЕ" items={groups.upcoming} />
+                            <Section title="СЕЙЧАС ИГРАЮТ" items={groups.active} pulse />
+                        </>
+                    )}
+                    <Section title="ЗАВЕРШЁННЫЕ" items={groups.completed} dim />
                 </div>
             );
         }
@@ -101,7 +293,9 @@
             const auth = window.useAuthState();
             return (
                 <window.AuthContext.Provider value={auth}>
-                    <window.Layout activePage="tournaments"><TournamentList /></window.Layout>
+                    <window.Layout activePage="tournaments">
+                        <TournamentList />
+                    </window.Layout>
                 </window.AuthContext.Provider>
             );
         }
