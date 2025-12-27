@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grechka • Профиль</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <style>* { font-family: 'Inter', sans-serif; }</style>
+    <script src="/NEW/js/config.js"></script>
+    <script type="text/babel" src="/NEW/js/shared.js"></script>
+</head>
+<body class="bg-black">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        function ProfileView() {
+            const { user, profile } = window.useAuth();
+            const [editing, setEditing] = useState(false);
+            const [name, setName] = useState('');
+            const [uploading, setUploading] = useState(false);
+            const [emailVerified, setEmailVerified] = useState(user?.emailVerified);
+
+            useEffect(() => {
+                if (profile) setName(profile.name || '');
+                if (user) setEmailVerified(user.emailVerified);
+            }, [profile, user]);
+
+            if (!user || !profile) {
+                return (
+                    <div className="text-center py-20">
+                        <window.Card className="p-16 max-w-md mx-auto">
+                            <div className="text-6xl mb-4 opacity-20">👤</div>
+                            <p className="text-gray-400 mb-6">Войдите, чтобы увидеть профиль</p>
+                            <window.Button onClick={() => window.location.href = '/NEW/index.html'}>На главную</window.Button>
+                        </window.Card>
+                    </div>
+                );
+            }
+
+            const handleSaveName = async () => {
+                if (!name.trim()) return;
+                await window.fb.doc('players', user.uid).update({ name: name.trim() });
+                if (user.updateProfile) {
+                    await user.updateProfile({ displayName: name.trim() });
+                }
+                setEditing(false);
+            };
+
+            const handlePhotoUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                setUploading(true);
+                try {
+                    const storage = firebase.storage();
+                    const ref = storage.ref(`avatars/${user.uid}/${Date.now()}_${file.name}`);
+                    const snapshot = await ref.put(file);
+                    const photoURL = await snapshot.ref.getDownloadURL();
+                    
+                    await window.fb.doc('players', user.uid).update({ photoURL });
+                    if (user.updateProfile) {
+                        await user.updateProfile({ photoURL });
+                    }
+                } catch (error) {
+                    alert('Ошибка загрузки фото: ' + error.message);
+                }
+                setUploading(false);
+            };
+
+            const sendVerificationEmail = async () => {
+                try {
+                    await user.sendEmailVerification();
+                    alert('Письмо с подтверждением отправлено на ' + user.email);
+                } catch (error) {
+                    alert('Ошибка: ' + error.message);
+                }
+            };
+
+            const winRate = profile.totalMatches > 0 ? ((profile.wins / profile.totalMatches) * 100).toFixed(0) : 0;
+
+            return (
+                <div className="max-w-4xl mx-auto">
+                    <h2 className="text-3xl font-bold text-white mb-8">Мой профиль</h2>
+
+                    {!emailVerified && user.providerData?.[0]?.providerId === 'password' && (
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-6 mb-8">
+                            <div className="flex items-start gap-4">
+                                <div className="text-3xl">⚠️</div>
+                                <div className="flex-1">
+                                    <h3 className="text-yellow-500 font-bold mb-2">Email не подтвержден</h3>
+                                    <p className="text-yellow-500/80 text-sm mb-4">Подтвердите email, чтобы получить полный доступ к функциям</p>
+                                    <button onClick={sendVerificationEmail} className="bg-yellow-500 text-black px-4 py-2 rounded-xl font-semibold text-sm hover:bg-yellow-400">
+                                        Отправить письмо повторно
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <window.Card className="p-8 mb-8">
+                        <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
+                            <div className="relative">
+                                <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-5xl overflow-hidden">
+                                    {profile.photoURL ? (
+                                        <img src={profile.photoURL} className="w-full h-full object-cover" alt="Avatar" />
+                                    ) : (
+                                        profile.name?.[0] || '?'
+                                    )}
+                                </div>
+                                <label className="absolute bottom-0 right-0 bg-black text-white p-3 rounded-full cursor-pointer hover:bg-gray-800 transition-all">
+                                    {uploading ? '⏳' : '📷'}
+                                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" disabled={uploading} />
+                                </label>
+                            </div>
+                            
+                            <div className="flex-1 text-center md:text-left">
+                                {editing ? (
+                                    <div className="space-y-4">
+                                        <window.Input value={name} onChange={e => setName(e.target.value)} placeholder="Ваше имя" className="text-xl font-bold" />
+                                        <div className="flex gap-3">
+                                            <button onClick={handleSaveName} disabled={!name.trim()} className="bg-black text-white px-6 py-2 rounded-xl font-semibold hover:bg-gray-800 disabled:opacity-50">
+                                                Сохранить
+                                            </button>
+                                            <button onClick={() => { setName(profile.name || ''); setEditing(false); }} className="bg-gray-100 text-black px-6 py-2 rounded-xl font-semibold hover:bg-gray-200">
+                                                Отмена
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex items-center gap-3 justify-center md:justify-start mb-3">
+                                            <h3 className="text-3xl font-black text-black">{profile.name || 'Игрок'}</h3>
+                                            <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-black text-lg">✏️</button>
+                                        </div>
+                                        <div className="text-gray-500 text-sm space-y-1">
+                                            <div>📧 {user.email}</div>
+                                            {emailVerified && <div className="text-green-600 font-medium">✓ Email подтвержден</div>}
+                                            <div className="text-gray-400">Регистрация: {window.formatDate(profile.createdAt, { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </window.Card>
+
+                    <window.Card className="p-8">
+                        <h3 className="text-xl font-bold text-black mb-6">Статистика</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                <div className="text-4xl font-black text-black">{profile.tournamentsPlayed || 0}</div>
+                                <div className="text-gray-400 text-sm mt-2">Турниров</div>
+                            </div>
+                            <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                <div className="text-4xl font-black text-black">{profile.totalMatches || 0}</div>
+                                <div className="text-gray-400 text-sm mt-2">Матчей</div>
+                            </div>
+                            <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                <div className="text-4xl font-black text-black">{profile.points || 0}</div>
+                                <div className="text-gray-400 text-sm mt-2">Очков</div>
+                            </div>
+                            <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                <div className="text-4xl font-black text-black">{winRate}%</div>
+                                <div className="text-gray-400 text-sm mt-2">Винрейт</div>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-8 grid grid-cols-2 gap-6">
+                            <div className="bg-green-50 p-6 rounded-2xl">
+                                <div className="text-green-600 text-sm font-medium mb-1">Побед</div>
+                                <div className="text-3xl font-black text-green-600">{profile.wins || 0}</div>
+                            </div>
+                            <div className="bg-red-50 p-6 rounded-2xl">
+                                <div className="text-red-600 text-sm font-medium mb-1">Поражений</div>
+                                <div className="text-3xl font-black text-red-600">{profile.losses || 0}</div>
+                            </div>
+                        </div>
+                    </window.Card>
+                </div>
+            );
+        }
+
+        function App() {
+            const auth = window.useAuthState();
+            return (
+                <window.AuthContext.Provider value={auth}>
+                    <window.Layout activePage="profile">
+                        <ProfileView />
+                    </window.Layout>
+                </window.AuthContext.Provider>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
