@@ -26,28 +26,38 @@ window.telegramAuth = {
     
     // Создание/вход пользователя через Telegram
     loginWithTelegram: async (telegramUser) => {
+        console.log('🔵 Telegram login started:', telegramUser);
         try {
             const email = `tg_${telegramUser.id}@telegram.user`;
             // Используем ПОСТОЯННЫЙ пароль на основе bot token и telegram ID
             const password = `tg_${CONFIG.TELEGRAM.BOT_TOKEN.slice(0, 20)}_${telegramUser.id}`;
             
+            console.log('📧 Generated credentials:', { email, passwordLength: password.length });
+            
             let user = null;
             
             try {
-                // Пробуем войти
+                // Пробуем войти с новым паролем
+                console.log('🔑 Attempting signIn...');
                 const userCredential = await window.fb.auth.signInWithEmailAndPassword(email, password);
                 user = userCredential.user;
+                console.log('✅ SignIn successful:', user.uid);
             } catch (signInError) {
+                console.log('❌ SignIn failed:', signInError.code, signInError.message);
+                
                 if (signInError.code === 'auth/user-not-found') {
+                    console.log('🆕 Creating new user...');
                     // Создаем нового пользователя
                     const userCredential = await window.fb.auth.createUserWithEmailAndPassword(email, password);
                     user = userCredential.user;
+                    console.log('✅ User created:', user.uid);
                     
                     // Обновляем профиль Firebase Auth
                     await user.updateProfile({
                         displayName: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
                         photoURL: telegramUser.photo_url || null
                     });
+                    console.log('✅ Profile updated');
                     
                     // Создаем профиль в Firestore с Firebase UID
                     await window.fb.doc('players', user.uid).set({
@@ -66,17 +76,20 @@ window.telegramAuth = {
                         emailVerified: true,
                         createdAt: new Date().toISOString()
                     });
-                } else if (signInError.code === 'auth/wrong-password') {
-                    // Пароль неверный - возможно старый аккаунт с другим паролем
-                    throw new Error('Аккаунт уже существует. Попробуйте войти через почту или обратитесь в поддержку.');
+                    console.log('✅ Firestore profile created');
+                } else if (signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-login-credentials' || signInError.code === 'auth/invalid-credential') {
+                    // Старый аккаунт с другим паролем - показываем инструкцию
+                    console.log('⚠️ Old account detected with different password');
+                    throw new Error('Старый аккаунт обнаружен. Удалите его в Firebase Console: ' + email);
                 } else {
                     throw signInError;
                 }
             }
             
+            console.log('🎉 Telegram login completed successfully');
             return true;
         } catch (error) {
-            console.error('Telegram auth error:', error);
+            console.error('💥 Telegram auth error:', error);
             throw error;
         }
     }
