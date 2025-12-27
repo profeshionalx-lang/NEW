@@ -27,47 +27,51 @@ window.telegramAuth = {
     // Создание/вход пользователя через Telegram
     loginWithTelegram: async (telegramUser) => {
         try {
-            const userId = `tg_${telegramUser.id}`;
-            const email = `${userId}@telegram.user`;
-            // Используем более надежный пароль
-            const password = telegramUser.hash || `tg_${telegramUser.id}_${telegramUser.auth_date}`;
+            const email = `tg_${telegramUser.id}@telegram.user`;
+            // Используем ПОСТОЯННЫЙ пароль на основе bot token и telegram ID
+            const password = `tg_${CONFIG.TELEGRAM.BOT_TOKEN.slice(0, 20)}_${telegramUser.id}`;
             
-            // Проверяем, существует ли пользователь в Firestore
-            const userDoc = await window.fb.doc('players', userId).get();
+            let user = null;
             
-            if (userDoc.exists) {
-                // Пользователь существует - входим
-                await window.fb.auth.signInWithEmailAndPassword(email, password);
-            } else {
-                // Новый пользователь - создаем
-                const userCredential = await window.fb.auth.createUserWithEmailAndPassword(email, password);
-                const user = userCredential.user;
-                
-                // Обновляем профиль Firebase Auth
-                if (user && user.updateProfile) {
+            try {
+                // Пробуем войти
+                const userCredential = await window.fb.auth.signInWithEmailAndPassword(email, password);
+                user = userCredential.user;
+            } catch (signInError) {
+                if (signInError.code === 'auth/user-not-found') {
+                    // Создаем нового пользователя
+                    const userCredential = await window.fb.auth.createUserWithEmailAndPassword(email, password);
+                    user = userCredential.user;
+                    
+                    // Обновляем профиль Firebase Auth
                     await user.updateProfile({
                         displayName: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
                         photoURL: telegramUser.photo_url || null
                     });
+                    
+                    // Создаем профиль в Firestore с Firebase UID
+                    await window.fb.doc('players', user.uid).set({
+                        id: user.uid,
+                        telegramId: telegramUser.id,
+                        name: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
+                        username: telegramUser.username || null,
+                        email: email,
+                        photoURL: telegramUser.photo_url || null,
+                        authProvider: 'telegram',
+                        points: 0,
+                        totalMatches: 0,
+                        wins: 0,
+                        losses: 0,
+                        tournamentsPlayed: 0,
+                        emailVerified: true,
+                        createdAt: new Date().toISOString()
+                    });
+                } else if (signInError.code === 'auth/wrong-password') {
+                    // Пароль неверный - возможно старый аккаунт с другим паролем
+                    throw new Error('Аккаунт уже существует. Попробуйте войти через почту или обратитесь в поддержку.');
+                } else {
+                    throw signInError;
                 }
-                
-                // Создаем профиль в Firestore
-                await window.fb.doc('players', user.uid).set({
-                    id: user.uid,
-                    telegramId: telegramUser.id,
-                    name: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
-                    username: telegramUser.username || null,
-                    email: email,
-                    photoURL: telegramUser.photo_url || null,
-                    authProvider: 'telegram',
-                    points: 0,
-                    totalMatches: 0,
-                    wins: 0,
-                    losses: 0,
-                    tournamentsPlayed: 0,
-                    emailVerified: true, // Telegram пользователи автоматически верифицированы
-                    createdAt: new Date().toISOString()
-                });
             }
             
             return true;
