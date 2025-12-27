@@ -29,27 +29,45 @@ window.telegramAuth = {
         try {
             const userId = `tg_${telegramUser.id}`;
             const email = `${userId}@telegram.user`;
-            const password = `tg_${telegramUser.id}_${CONFIG.TELEGRAM.BOT_TOKEN.slice(0, 10)}`;
+            // Используем более надежный пароль
+            const password = telegramUser.hash || `tg_${telegramUser.id}_${telegramUser.auth_date}`;
             
-            // Пробуем войти
-            try {
+            // Проверяем, существует ли пользователь в Firestore
+            const userDoc = await window.fb.doc('players', userId).get();
+            
+            if (userDoc.exists) {
+                // Пользователь существует - входим
                 await window.fb.auth.signInWithEmailAndPassword(email, password);
-            } catch (signInError) {
-                // Если пользователя нет - создаем
-                if (signInError.code === 'auth/user-not-found') {
-                    await window.fb.auth.createUserWithEmailAndPassword(email, password);
-                    const user = window.fb.auth.currentUser;
-                    
-                    // Обновляем профиль
-                    if (user && user.updateProfile) {
-                        await user.updateProfile({
-                            displayName: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
-                            photoURL: telegramUser.photo_url || null
-                        });
-                    }
-                } else {
-                    throw signInError;
+            } else {
+                // Новый пользователь - создаем
+                const userCredential = await window.fb.auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // Обновляем профиль Firebase Auth
+                if (user && user.updateProfile) {
+                    await user.updateProfile({
+                        displayName: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
+                        photoURL: telegramUser.photo_url || null
+                    });
                 }
+                
+                // Создаем профиль в Firestore
+                await window.fb.doc('players', user.uid).set({
+                    id: user.uid,
+                    telegramId: telegramUser.id,
+                    name: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
+                    username: telegramUser.username || null,
+                    email: email,
+                    photoURL: telegramUser.photo_url || null,
+                    authProvider: 'telegram',
+                    points: 0,
+                    totalMatches: 0,
+                    wins: 0,
+                    losses: 0,
+                    tournamentsPlayed: 0,
+                    emailVerified: true, // Telegram пользователи автоматически верифицированы
+                    createdAt: new Date().toISOString()
+                });
             }
             
             return true;
@@ -294,6 +312,7 @@ window.AuthModal = ({ onClose }) => {
         
         window.onTelegramAuth = async (user) => {
             setLoading(true);
+            setError('');
             try {
                 const isValid = await window.telegramAuth.checkSignature(user);
                 if (!isValid) {
@@ -305,7 +324,8 @@ window.AuthModal = ({ onClose }) => {
                 await window.telegramAuth.loginWithTelegram(user);
                 onClose();
             } catch (err) {
-                setError('Ошибка входа через Telegram: ' + err.message);
+                console.error('Telegram auth error:', err);
+                setError('Ошибка входа через Telegram: ' + (err.message || 'Попробуйте снова'));
                 setLoading(false);
             }
         };
