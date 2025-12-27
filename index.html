@@ -14,8 +14,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
     <style>* { font-family: 'Inter', sans-serif; }</style>
-    <script src="/NEW/js/config.js"></script>
-    <script type="text/babel" src="/NEW/js/shared.js"></script>
+    <script src="./js/config.js"></script>
+    <script type="text/babel" src="./js/shared.js"></script>
 </head>
 <body class="bg-black">
     <div id="root"></div>
@@ -25,7 +25,7 @@
         function TournamentCard({ tournament: t, canDelete, onDelete }) {
             const status = t.status === 'completed' ? 'completed' : (t.status === 'stage1' || t.status === 'stage2') ? 'active' : 'default';
             return (
-                <a href={`/NEW/tournament.html?id=${t.id}`} className="block no-underline">
+                <a href={`./tournament.html?id=${t.id}`} className="block no-underline">
                     <window.Card className="p-6 cursor-pointer group hover:shadow-xl transition-all h-full relative">
                         <div className="flex justify-between mb-4">
                             <window.Badge variant={status}>{status === 'active' ? 'LIVE' : status === 'completed' ? 'Завершен' : 'Регистрация'}</window.Badge>
@@ -116,7 +116,7 @@
                     id, ...data, status: 'upcoming', deleted: false, createdAt: new Date().toISOString(), 
                     createdBy: user?.uid || null, registeredPlayers: [], pairs: [] 
                 });
-                window.location.href = `/NEW/tournament.html?id=${id}`;
+                window.location.href = `./tournament.html?id=${id}`;
             };
 
             const del = async (id) => { if(confirm('Удалить?')) await window.fb.doc('tournaments', id).update({ deleted: true }); };
