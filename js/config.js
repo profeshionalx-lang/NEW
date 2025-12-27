@@ -1,6 +1,10 @@
 // js/config.js
 const CONFIG = {
     ADMIN_EMAIL: 'profeshionalx@gmail.com',
+    TELEGRAM: {
+        BOT_TOKEN: '8523408241:AAF9LSodUHSeG6UgGm0ZmkPnL8BkimXUHhQ',
+        BOT_USERNAME: 'GrechkaPadelBot'
+    },
     FIREBASE: {
         apiKey: "AIzaSyBVKxWXOxVq_9vIpRr7eQCEJOPv7PKImg0",
         authDomain: "grechka-6bdb7.firebaseapp.com",
