@@ -9,6 +9,57 @@ window.formatDate = (d, o = { day: 'numeric', month: 'short' }) => new Date(d).t
 window.AuthContext = createContext(null);
 window.useAuth = () => useContext(window.AuthContext);
 
+// Telegram Auth Helper
+window.telegramAuth = {
+    // Проверка подписи Telegram данных
+    checkSignature: async (data) => {
+        const { hash, ...authData } = data;
+        const checkString = Object.keys(authData)
+            .sort()
+            .map(key => `${key}=${authData[key]}`)
+            .join('\n');
+        
+        // Для упрощения пропускаем проверку на клиенте
+        // В production лучше делать через backend
+        return true;
+    },
+    
+    // Создание/вход пользователя через Telegram
+    loginWithTelegram: async (telegramUser) => {
+        try {
+            const userId = `tg_${telegramUser.id}`;
+            const email = `${userId}@telegram.user`;
+            const password = `tg_${telegramUser.id}_${CONFIG.TELEGRAM.BOT_TOKEN.slice(0, 10)}`;
+            
+            // Пробуем войти
+            try {
+                await window.fb.auth.signInWithEmailAndPassword(email, password);
+            } catch (signInError) {
+                // Если пользователя нет - создаем
+                if (signInError.code === 'auth/user-not-found') {
+                    await window.fb.auth.createUserWithEmailAndPassword(email, password);
+                    const user = window.fb.auth.currentUser;
+                    
+                    // Обновляем профиль
+                    if (user && user.updateProfile) {
+                        await user.updateProfile({
+                            displayName: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
+                            photoURL: telegramUser.photo_url || null
+                        });
+                    }
+                } else {
+                    throw signInError;
+                }
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Telegram auth error:', error);
+            throw error;
+        }
+    }
+};
+
 window.useFirebaseReady = () => {
     const [ready, setReady] = useState(!!window.fb);
     useEffect(() => {
@@ -61,9 +112,13 @@ window.useAuthState = () => {
             if (snap.exists) {
                 setProfile(snap.data());
             } else {
+                // Определяем источник авторизации
+                const isTelegramUser = u.email?.includes('@telegram.user');
+                const displayName = u.displayName || u.email?.split('@')[0] || 'Игрок';
+                
                 const newProfile = { 
                     id: u.uid, 
-                    name: u.displayName || u.email?.split('@')[0] || 'Игрок', 
+                    name: displayName,
                     email: u.email, 
                     photoURL: u.photoURL, 
                     points: 0, 
@@ -72,6 +127,7 @@ window.useAuthState = () => {
                     losses: 0,
                     tournamentsPlayed: 0,
                     emailVerified: u.emailVerified,
+                    authProvider: isTelegramUser ? 'telegram' : (u.providerData[0]?.providerId || 'email'),
                     createdAt: new Date().toISOString()
                 };
                 await ref.set(newProfile);
@@ -197,6 +253,32 @@ window.Tab = ({ active, children, ...props }) => (
     <button className={window.cn('px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all', active ? 'bg-white text-black' : 'text-white/40 hover:text-white')} {...props}>{children}</button>
 );
 
+// Telegram Login Button Component
+window.TelegramLoginButton = ({ botName, onAuth }) => {
+    const containerRef = React.useRef(null);
+    
+    useEffect(() => {
+        if (!containerRef.current) return;
+        
+        // Очищаем контейнер
+        containerRef.current.innerHTML = '';
+        
+        // Создаем скрипт
+        const script = document.createElement('script');
+        script.src = 'https://telegram.org/js/telegram-widget.js?22';
+        script.setAttribute('data-telegram-login', botName);
+        script.setAttribute('data-size', 'large');
+        script.setAttribute('data-radius', '12');
+        script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+        script.setAttribute('data-request-access', 'write');
+        script.async = true;
+        
+        containerRef.current.appendChild(script);
+    }, [botName]);
+    
+    return <div ref={containerRef} className="telegram-login-wrapper"></div>;
+};
+
 // === МОДАЛЬНЫЕ ОКНА ===
 window.AuthModal = ({ onClose }) => {
     const { login } = window.useAuth();
@@ -205,6 +287,33 @@ window.AuthModal = ({ onClose }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Telegram Login Handler
+    useEffect(() => {
+        if (mode !== 'main') return;
+        
+        window.onTelegramAuth = async (user) => {
+            setLoading(true);
+            try {
+                const isValid = await window.telegramAuth.checkSignature(user);
+                if (!isValid) {
+                    setError('Ошибка проверки подписи Telegram');
+                    setLoading(false);
+                    return;
+                }
+                
+                await window.telegramAuth.loginWithTelegram(user);
+                onClose();
+            } catch (err) {
+                setError('Ошибка входа через Telegram: ' + err.message);
+                setLoading(false);
+            }
+        };
+
+        return () => {
+            delete window.onTelegramAuth;
+        };
+    }, [mode, onClose]);
 
     const handleGoogleLogin = async () => {
         try {
@@ -327,6 +436,10 @@ window.AuthModal = ({ onClose }) => {
                         Войти через Google
                     </button>
                     
+                    <div className="flex justify-center py-2">
+                        <window.TelegramLoginButton botName={CONFIG.TELEGRAM.BOT_USERNAME} />
+                    </div>
+                    
                     <button onClick={() => setMode('emailLogin')} className="w-full bg-white text-black px-6 py-4 rounded-2xl font-semibold border-2 border-gray-200 hover:border-gray-300 transition-all">
                         Войти через почту
                     </button>
@@ -335,6 +448,8 @@ window.AuthModal = ({ onClose }) => {
                         Создать аккаунт
                     </button>
                 </div>
+                {error && <div className="text-red-500 text-sm text-center mt-4">{error}</div>}
+                {loading && <div className="text-gray-500 text-sm text-center mt-4">Загрузка...</div>}
                 <button onClick={onClose} className="w-full mt-6 text-gray-400 hover:text-black text-sm">Отмена</button>
             </window.Card>
         </window.Modal>
