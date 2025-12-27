@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grechka • Рейтинг</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>* { font-family: 'Inter', sans-serif; }</style>
+    <script src="/NEW/js/config.js"></script>
+    <script type="text/babel" src="/NEW/js/shared.js"></script>
+</head>
+<body class="bg-black">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        function PlayersView() {
+            const players = window.useCollection('players').sort((a, b) => (b.points || 0) - (a.points || 0));
+            const [selected, setSelected] = useState(null);
+
+            if (selected) {
+                const winRate = selected.totalMatches > 0 ? ((selected.wins / selected.totalMatches) * 100).toFixed(0) : 0;
+                return (
+                    <div>
+                        <window.Button variant="ghost" onClick={() => setSelected(null)} className="mb-8">← Назад</window.Button>
+                        <window.Card className="p-12">
+                            <div className="flex items-center gap-8 mb-12">
+                                <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-4xl">
+                                    {selected.photoURL ? <img src={selected.photoURL} className="w-24 h-24 rounded-full" /> : selected.name?.[0] || '?'}
+                                </div>
+                                <h2 className="text-4xl font-black text-black">{selected.name || 'Игрок'}</h2>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{selected.tournamentsPlayed || 0}</div>
+                                    <div className="text-gray-400 text-sm">Турниров</div>
+                                </div>
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{selected.totalMatches || 0}</div>
+                                    <div className="text-gray-400 text-sm">Матчей</div>
+                                </div>
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{selected.points || 0}</div>
+                                    <div className="text-gray-400 text-sm">Очков</div>
+                                </div>
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{winRate}%</div>
+                                    <div className="text-gray-400 text-sm">Винрейт</div>
+                                </div>
+                            </div>
+                        </window.Card>
+                    </div>
+                );
+            }
+
+            return (
+                <div>
+                    <h2 className="text-3xl font-bold text-white mb-8">Рейтинг игроков</h2>
+                    {players.length === 0 ? (
+                        <window.Card className="p-16 text-center">
+                            <div className="text-6xl mb-4 opacity-20">🎾</div>
+                            <p className="text-gray-400">Пока нет игроков</p>
+                        </window.Card>
+                    ) : (
+                        <div className="space-y-4">
+                            {players.map((p, i) => (
+                                <window.Card key={p.id} className="p-5 cursor-pointer hover:shadow-lg transition-all flex items-center gap-6" onClick={() => setSelected(p)}>
+                                    <div className={window.cn('w-12 h-12 rounded-full flex items-center justify-center font-black text-xl', i === 0 ? 'bg-black text-white' : i === 1 ? 'bg-gray-400 text-white' : i === 2 ? 'bg-gray-300 text-gray-700' : 'bg-gray-100 text-gray-500')}>{i + 1}</div>
+                                    <window.Avatar src={p.photoURL || ''} name={p.name || 'Игрок'} size="lg" />
+                                    <div className="flex-1">
+                                        <div className="text-xl font-bold text-black">{p.name || 'Игрок'}</div>
+                                        <div className="text-gray-400 text-sm">{p.totalMatches || 0} матчей</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-3xl font-black text-black">{p.points || 0}</div>
+                                        <div className="text-gray-400 text-xs">очков</div>
+                                    </div>
+                                </window.Card>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function App() {
+            const auth = window.useAuthState();
+            return (
+                <window.AuthContext.Provider value={auth}>
+                    <window.Layout activePage="players">
+                        <PlayersView />
+                    </window.Layout>
+                </window.AuthContext.Provider>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
