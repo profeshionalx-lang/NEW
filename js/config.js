@@ -18,9 +18,10 @@ const CONFIG = {
     firebase.initializeApp(CONFIG.FIREBASE);
     const db = firebase.firestore();
     const auth = firebase.auth();
+    const storage = firebase.storage();
     
     window.fb = {
-        db, auth,
+        db, auth, storage,
         googleProvider: new firebase.auth.GoogleAuthProvider(),
         collection: (name) => db.collection(name),
         doc: (col, id) => db.collection(col).doc(id),
