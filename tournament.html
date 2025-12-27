@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grechka • Турнир</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>* { font-family: 'Inter', sans-serif; }</style>
+    <script src="/NEW/js/config.js"></script>
+    <script type="text/babel" src="/NEW/js/shared.js"></script>
+</head>
+<body class="bg-black">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+
+        // PairsEditor - редактор пар перед началом турнира
+        function PairsEditor({ players, courts, onConfirm, onCancel }) {
+            const [pairs, setPairs] = useState(() => {
+                const shuffled = [...players].sort(() => Math.random() - 0.5);
+                return Array(Math.ceil(shuffled.length / 2)).fill().map((_, i) => ({
+                    id: i + 1, player1: shuffled[i * 2] || null, player2: shuffled[i * 2 + 1] || null
+                }));
+            });
+            const [dragPlayer, setDragPlayer] = useState(null);
+
+            const swapPlayers = (from, to) => {
+                const newPairs = [...pairs];
+                [newPairs[from.pairIdx][from.slot], newPairs[to.pairIdx][to.slot]] = [newPairs[to.pairIdx][to.slot], newPairs[from.pairIdx][from.slot]];
+                setPairs(newPairs);
+            };
+
+            const updatePlayerName = (pairIdx, slot, name) => {
+                const newPairs = [...pairs];
+                newPairs[pairIdx][slot] = newPairs[pairIdx][slot] ? { ...newPairs[pairIdx][slot], name } : { id: `manual_${Date.now()}`, name, photoURL: null };
+                setPairs(newPairs);
+            };
+
+            const PlayerSlot = ({ player, pairIdx, slot }) => {
+                const [editing, setEditing] = useState(false);
+                const [name, setName] = useState(player?.name || '');
+                const isDragging = dragPlayer?.pairIdx === pairIdx && dragPlayer?.slot === slot;
+
+                return (
+                    <div draggable={!!player} onDragStart={() => setDragPlayer({ pairIdx, slot })} 
+                        onDragOver={e => e.preventDefault()} 
+                        onDrop={() => { if (dragPlayer) { swapPlayers(dragPlayer, { pairIdx, slot }); setDragPlayer(null); }}} 
+                        className={window.cn('flex items-center gap-3 p-3 rounded-xl border-2 border-dashed transition-all cursor-move', 
+                            isDragging ? 'opacity-50 border-blue-500 bg-blue-50' : player ? 'border-gray-200 bg-white hover:border-gray-400' : 'border-gray-300 bg-gray-50')}>
+                        {player ? (
+                            <>
+                                <window.Avatar src={player.photoURL} name={player.name} size="sm" />
+                                {editing ? (
+                                    <input autoFocus className="flex-1 bg-transparent border-b border-black outline-none text-black font-medium" value={name} 
+                                        onChange={e => setName(e.target.value)} onBlur={() => { updatePlayerName(pairIdx, slot, name); setEditing(false); }} 
+                                        onKeyDown={e => e.key === 'Enter' && e.target.blur()} />
+                                ) : (
+                                    <span className="flex-1 font-medium text-black" onDoubleClick={() => setEditing(true)}>{player.name}</span>
+                                )}
+                                <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-blue-500 text-sm">✏️</button>
+                                <button onClick={() => { const np = [...pairs]; np[pairIdx][slot] = null; setPairs(np); }} className="text-gray-400 hover:text-red-500 text-sm">✕</button>
+                            </>
+                        ) : (
+                            <input className="w-full bg-transparent text-center outline-none text-gray-400 placeholder-gray-300" placeholder="+ Добавить" 
+                                value={name} onChange={e => setName(e.target.value)} 
+                                onBlur={() => { if (name.trim()) updatePlayerName(pairIdx, slot, name.trim()); setName(''); }} 
+                                onKeyDown={e => e.key === 'Enter' && e.target.blur()} />
+                        )}
+                    </div>
+                );
+            };
+
+            return (
+                <div className="max-w-3xl mx-auto">
+                    <div className="flex items-center justify-between mb-8">
+                        <div><h2 className="text-3xl font-bold text-white">Редактирование пар</h2><p className="text-white/60 mt-1">Перетаскивайте игроков</p></div>
+                        <window.Button variant="ghost" onClick={onCancel}>✕</window.Button>
+                    </div>
+                    <window.Card className="p-6 mb-6">
+                        <div className="space-y-4">
+                            {pairs.map((pair, idx) => (
+                                <div key={idx} className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-black text-white flex items-center justify-center font-black text-lg shrink-0">{idx + 1}</div>
+                                    <div className="flex-1 grid grid-cols-2 gap-3">
+                                        <PlayerSlot player={pair.player1} pairIdx={idx} slot="player1" />
+                                        <PlayerSlot player={pair.player2} pairIdx={idx} slot="player2" />
+                                    </div>
+                                    <button onClick={() => setPairs(pairs.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-500 p-2">🗑️</button>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={() => setPairs([...pairs, { id: pairs.length + 1, player1: null, player2: null }])} 
+                            className="w-full mt-4 p-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-gray-400 transition-all">
+                            + Добавить пару
+                        </button>
+                    </window.Card>
+                    <div className="flex gap-4">
+                        <window.Button onClick={() => onConfirm(pairs.filter(p => p.player1 || p.player2).map((p, i) => ({ 
+                            id: i + 1, number: i + 1, player1: p.player1?.name || 'TBD', player2: p.player2?.name || 'TBD', 
+                            player1Id: p.player1?.id, player2Id: p.player2?.id 
+                        })))} className="flex-1 bg-black">✓ Начать ({pairs.filter(p => p.player1 || p.player2).length} пар)</window.Button>
+                        <window.Button variant="secondary" onClick={onCancel} className="bg-gray-100 text-black">Отмена</window.Button>
+                    </div>
+                </div>
+            );
+        }
+
+        // MatchCard - карточка матча
+        function MatchCard({ match, onEdit, isAdmin }) {
+            const hasResult = match.set1p1 !== '' && match.set1p2 !== '';
+            const [p1, p2] = [parseInt(match.set1p1) || 0, parseInt(match.set1p2) || 0];
+            const winner = hasResult ? (p1 > p2 ? 1 : p1 < p2 ? 2 : 0) : 0;
+            const courtName = typeof match.court === 'object' ? match.court.name : `Корт ${match.court}`;
+
+            return (
+                <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-3 flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-3 text-white">
+                        <span className="bg-white bg-opacity-30 px-3 py-1 rounded-full text-xs font-bold">{courtName}</span>
+                        <span className="text-sm">
+                            <strong className={winner === 1 ? 'text-green-300' : ''}>#{match.pair1?.number}</strong> vs <strong className={winner === 2 ? 'text-green-300' : ''}>#{match.pair2?.number}</strong>
+                        </span>
+                    </div>
+                    {hasResult ? (
+                        <div className="flex gap-3 items-center">
+                            <span className="text-white font-black text-lg">{match.set1p1}:{match.set1p2}</span>
+                            {isAdmin && <button className="bg-white bg-opacity-30 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-opacity-40" onClick={onEdit}>✎</button>}
+                        </div>
+                    ) : isAdmin ? (
+                        <button onClick={onEdit} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-bold">Ввести</button>
+                    ) : <span className="text-white text-sm opacity-50">Ожидание</span>}
+                </div>
+            );
+        }
+      
+        // StageView - этап турнира
+        function StageView({ groups, stage, onUpdateMatch, isAdmin }) {
+            const colors = ['from-rose-500 to-pink-500', 'from-blue-500 to-cyan-500', 'from-emerald-500 to-teal-500', 'from-purple-500 to-indigo-500'];
+            return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{groups?.map((g, i) => <GroupView key={g.id} group={g} stage={stage} onUpdateMatch={onUpdateMatch} colorClass={colors[i % colors.length]} isAdmin={isAdmin} />)}</div>;
+        }
+
+        // TableView - общая таблица
+        function TableView({ groups, onNext, showNext }) {
+            const allPairs = groups?.flatMap(g => g.pairs.map(p => ({ ...p, group: g.name }))).sort((a, b) => b.points - a.points || b.gamesDiff - a.gamesDiff) || [];
+            return (
+                <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl p-8 shadow-2xl">
+                    <h3 className="text-3xl font-black text-white mb-6">ОБЩАЯ ТАБЛИЦА</h3>
+                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl overflow-hidden mb-6">
+                        <table className="w-full text-white">
+                            <thead><tr className="border-b border-white border-opacity-30">
+                                <th className="p-4 text-left font-bold">М</th><th className="p-4 text-left font-bold">Гр</th>
+                                <th className="p-4 text-left font-bold">Пара</th><th className="p-4 text-center font-bold">О</th>
+                                <th className="p-4 text-center font-bold">+/-</th>
+                            </tr></thead>
+                            <tbody>
+                                {allPairs.map((p, i) => (
+                                    <tr key={p.id} className="border-b border-white border-opacity-20">
+                                        <td className="p-4"><span className="font-black text-2xl">{i + 1}</span></td>
+                                        <td className="p-4 font-bold">{p.group}</td>
+                                        <td className="p-4"><div className="font-bold">#{p.number}</div><div className="text-sm opacity-90">{p.player1}/{p.player2}</div></td>
+                                        <td className="p-4 text-center"><span className="font-black text-xl">{p.points}</span></td>
+                                        <td className={`p-4 text-center font-bold text-lg ${p.gamesDiff > 0 ? 'text-green-300' : 'text-red-300'}`}>{p.gamesDiff > 0 ? '+' : ''}{p.gamesDiff}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {showNext && <button className="w-full bg-white text-purple-600 px-8 py-4 rounded-2xl font-black text-lg hover:shadow-2xl transition-all" onClick={onNext}>ЭТАП 2 →</button>}
+                </div>
+            );
+        }
+
+        // FinalView - финальная таблица
+        function FinalView({ groups, onComplete, isCompleted, isAdmin }) {
+            const finalStandings = [];
+            groups?.forEach((g, gIdx) => {
+                [...g.pairs].sort((a, b) => b.points - a.points || b.gamesDiff - a.gamesDiff).forEach((p, pIdx) => 
+                    finalStandings.push({ ...p, finalPlace: gIdx * 4 + pIdx + 1 })
+                );
+            });
+            finalStandings.sort((a, b) => a.finalPlace - b.finalPlace);
+
+            return (
+                <div className="bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500 rounded-3xl p-8 shadow-2xl">
+                    <h3 className="text-4xl font-black text-white mb-6 text-center">🏆 ФИНАЛ</h3>
+                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl overflow-hidden mb-6">
+                        <table className="w-full text-white">
+                            <thead><tr className="border-b border-white border-opacity-30">
+                                <th className="p-4 text-left font-bold">Место</th><th className="p-4 text-left font-bold">Пара</th>
+                                <th className="p-4 text-center font-bold">Очки</th><th className="p-4 text-center font-bold">+/-</th>
+                            </tr></thead>
+                            <tbody>
+                                {finalStandings.map(p => (
+                                    <tr key={p.id} className="border-b border-white border-opacity-20">
+                                        <td className="p-4">
+                                            <span className={window.cn('inline-flex items-center justify-center w-12 h-12 rounded-full font-black text-xl', 
+                                                p.finalPlace === 1 ? 'bg-yellow-300 text-yellow-900' : p.finalPlace === 2 ? 'bg-gray-300 text-gray-900' : 
+                                                p.finalPlace === 3 ? 'bg-orange-300 text-orange-900' : 'bg-white bg-opacity-50')}>{p.finalPlace}</span>
+                                        </td>
+                                        <td className="p-4"><div className="font-bold text-lg">#{p.number}</div><div className="text-sm opacity-90">{p.player1}/{p.player2}</div></td>
+                                        <td className="p-4 text-center"><span className="font-black text-2xl">{p.points}</span></td>
+                                        <td className={`p-4 text-center font-bold text-xl ${p.gamesDiff > 0 ? 'text-green-300' : 'text-red-300'}`}>{p.gamesDiff > 0 ? '+' : ''}{p.gamesDiff}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {!isCompleted && isAdmin && <button className="w-full bg-white text-orange-600 px-8 py-4 rounded-2xl font-black text-lg" onClick={onComplete}>✓ ЗАВЕРШИТЬ</button>}
+                    {isCompleted && <div className="text-center py-8 bg-white bg-opacity-20 rounded-2xl"><div className="text-6xl mb-4">🏆</div><div className="text-white text-3xl font-black">ЗАВЕРШЁН!</div></div>}
+                </div>
+            );
+        }
+
+        // TournamentInfo - информация о турнире
+        function TournamentInfo({ tournament, isAdmin, user, isUserRegistered, onRegister, onUnregister, onStartTournament }) {
+            const rp = tournament.registeredPlayers || [];
+            const pairs = tournament.format === 'fixed' ? Array(Math.ceil(rp.length / 2)).fill().map((_, i) => ({ p1: rp[i * 2], p2: rp[i * 2 + 1], num: i + 1 })) : [];
+
+            return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                        <window.Card className="p-8 space-y-5">
+                            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-6">Детали</h3>
+                            {tournament.date && <div className="flex items-center gap-4"><span className="text-2xl">📅</span><div><div className="text-xs text-gray-400">Дата</div><div className="text-lg font-medium text-black">{window.formatDate(tournament.date, { weekday: 'long', day: 'numeric', month: 'long' })}</div></div></div>}
+                            {tournament.time && <div className="flex items-center gap-4"><span className="text-2xl">🕐</span><div><div className="text-xs text-gray-400">Время</div><div className="text-lg font-medium text-black">{tournament.time}</div></div></div>}
+                            {tournament.location && <div className="flex items-center gap-4"><span className="text-2xl">📍</span><div><div className="text-xs text-gray-400">Локация</div><div className="text-lg font-medium text-black">{tournament.location}</div></div></div>}
+                            {tournament.price && <div className="flex items-center gap-4"><span className="text-2xl">💰</span><div><div className="text-xs text-gray-400">Стоимость</div><div className="text-lg font-medium text-black">{tournament.price}</div></div></div>}
+                        </window.Card>
+                        {!tournament.stage1Groups && (
+                            <div className="space-y-4">
+                                {isUserRegistered ? (
+                                    <window.Button variant="danger" onClick={onUnregister} className="w-full">Отменить</window.Button>
+                                ) : (
+                                    <window.Button onClick={onRegister} className="w-full text-lg">{user ? 'Записаться' : 'Войти'}</window.Button>
+                                )}
+                                {isAdmin && rp.length >= 1 && <window.Button variant="secondary" onClick={onStartTournament} className="w-full">🚀 Начать</window.Button>}
+                            </div>
+                        )}
+                    </div>
+                    <window.Card className="p-8">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">{tournament.format === 'fixed' ? 'Пары' : 'Участники'}</h3>
+                            <span className="text-2xl font-bold text-black">{rp.length}<span className="text-gray-400 font-normal">/{tournament.maxPlayers || '∞'}</span></span>
+                        </div>
+                        {rp.length === 0 ? (
+                            <div className="text-center py-16"><div className="text-5xl mb-4 opacity-20">👥</div><p className="text-gray-400">Никто не записался</p></div>
+                        ) : tournament.format === 'fixed' ? (
+                            <div className="space-y-4 max-h-96 overflow-y-auto">
+                                {pairs.map((pair, i) => (
+                                    <div key={i} className="bg-gray-50 rounded-2xl p-4">
+                                        <div className="text-xs text-gray-400 mb-2 font-medium">Пара {pair.num}</div>
+                                        <div className="space-y-2">
+                                            {[pair.p1, pair.p2].map((p, j) => p ? (
+                                                <div key={j} className="flex items-center gap-3">
+                                                    <window.Avatar src={p.photoURL} name={p.name} />
+                                                    <div className="flex-1 font-medium text-black">{p.name}</div>
+                                                    {user?.uid === p.id && <span className="text-xs text-gray-400 bg-gray-200 px-2 py-1 rounded-full">Вы</span>}
+                                                </div>
+                                            ) : <div key={j} className="flex items-center gap-3 opacity-50"><div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300 text-gray-400">?</div><div className="text-gray-400 italic">Ожидается...</div></div>)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                                {rp.map((p, i) => (
+                                    <div key={p.id} className="flex items-center gap-4 p-3 rounded-2xl hover:bg-gray-50">
+                                        <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-sm font-bold">{i + 1}</div>
+                                        <window.Avatar src={p.photoURL} name={p.name} />
+                                        <div className="flex-1 font-medium text-black">{p.name}</div>
+                                        {user?.uid === p.id && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">Вы</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </window.Card>
+                </div>
+            );
+        }
+
+        // TournamentView - основной компонент
+        function TournamentView() {
+            const id = new URLSearchParams(window.location.search).get('id');
+            const { user, isAdmin, showAuth } = window.useAuth();
+            const t = window.useDocument('tournaments', id);
+            const [tab, setTab] = useState('info');
+            const [showPairsEditor, setShowPairsEditor] = useState(false);
+
+            if (!t) return <div className="text-white">Загрузка...</div>;
+
+            const isRegistered = t.registeredPlayers?.some(p => p.id === user?.uid);
+
+            const register = async () => {
+                if (!user) { showAuth(); return; }
+                if ((t.registeredPlayers?.length || 0) >= t.maxPlayers) return alert('Мест нет');
+                await window.fb.doc('tournaments', id).update({ registeredPlayers: window.fb.arrayUnion({ 
+                    id: user.uid, name: user.displayName || 'Игрок', email: user.email, photoURL: user.photoURL, registeredAt: new Date().toISOString() 
+                })});
+            };
+
+            const unregister = async () => {
+                const p = t.registeredPlayers?.find(p => p.id === user?.uid);
+                if (p) await window.fb.doc('tournaments', id).update({ registeredPlayers: window.fb.arrayRemove(p) });
+            };
+
+            const confirmPairs = async (pairs) => {
+                await window.fb.doc('tournaments', id).update({ status: 'stage1', pairs, stage1Groups: window.generateGroups(pairs, t.courts || 2) });
+                setShowPairsEditor(false); setTab('stage1');
+            };
+
+            const updateMatch = async (groupId, matchIdx, result, stage) => {
+                const field = stage === 1 ? 'stage1Groups' : 'stage2Groups';
+                const groups = [...t[field]];
+                Object.assign(groups[groupId].matches[matchIdx], result);
+                window.recalcGroup(groups[groupId]);
+                await window.fb.doc('tournaments', id).update({ [field]: groups });
+            };
+
+            const generateStage2 = async () => {
+                const allPairs = t.stage1Groups.flatMap(g => g.pairs).sort((a, b) => b.points - a.points || b.gamesDiff - a.gamesDiff);
+                await window.fb.doc('tournaments', id).update({ 
+                    stage2Groups: window.generateGroups(allPairs.map(p => ({ id: p.id, number: p.number, player1: p.player1, player2: p.player2, player1Id: p.player1Id, player2Id: p.player2Id })), t.courts), 
+                    status: 'stage2' 
+                });
+                setTab('stage2');
+            };
+
+            const complete = async () => {
+                const players = t.registeredPlayers || [];
+                const allPairs = t.stage2Groups?.flatMap(g => g.pairs) || [];
+                for (const p of players) {
+                    const pair = allPairs.find(pr => pr.player1Id === p.id || pr.player2Id === p.id);
+                    if (pair) {
+                        await window.fb.doc('players', p.id).update({
+                            tournamentsPlayed: window.fb.increment(1),
+                            totalMatches: window.fb.increment(pair.played || 0),
+                            wins: window.fb.increment(pair.won || 0),
+                            losses: window.fb.increment(pair.lost || 0),
+                            points: window.fb.increment(pair.points || 0)
+                        });
+                    }
+                }
+                await window.fb.doc('tournaments', id).update({ status: 'completed', completedAt: new Date().toISOString() });
+            };
+
+            const tabs = ['info', ...(t.stage1Groups ? ['stage1', 'table1'] : []), ...(t.stage2Groups ? ['stage2', 'final'] : [])];
+            const tabLabels = { info: 'Информация', stage1: 'Этап 1', table1: 'Таблица', stage2: 'Этап 2', final: 'Финал' };
+
+            if (showPairsEditor) {
+                return <PairsEditor players={t.registeredPlayers || []} courts={t.courts || 2} onConfirm={confirmPairs} onCancel={() => setShowPairsEditor(false)} />;
+            }
+
+            return (
+                <div>
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-6">
+                            <a href="/NEW/index.html" className="text-white/40 hover:text-white text-2xl no-underline">←</a>
+                            <div>
+                                <h2 className="text-3xl font-bold">{t.name}</h2>
+                                <div className="flex items-center gap-3 mt-1">
+                                    {(t.status === 'stage1' || t.status === 'stage2') && <window.Badge variant="active">LIVE</window.Badge>}
+                                    <span className="text-white/40 text-sm">{t.format === 'fixed' ? '👫 Фиксированные пары' : '🔄 Смена партнёров'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
+                        {tabs.map(t => <window.Tab key={t} active={tab === t} onClick={() => setTab(t)}>{tabLabels[t]}</window.Tab>)}
+                    </div>
+
+                    {tab === 'info' && <TournamentInfo tournament={t} isAdmin={isAdmin} user={user} isUserRegistered={isRegistered} onRegister={register} onUnregister={unregister} onStartTournament={() => setShowPairsEditor(true)} />}
+                    {tab === 'stage1' && <StageView groups={t.stage1Groups} stage={1} onUpdateMatch={updateMatch} isAdmin={isAdmin} />}
+                    {tab === 'table1' && <TableView groups={t.stage1Groups} onNext={generateStage2} showNext={isAdmin && !t.stage2Groups} />}
+                    {tab === 'stage2' && <StageView groups={t.stage2Groups} stage={2} onUpdateMatch={updateMatch} isAdmin={isAdmin} />}
+                    {tab === 'final' && <FinalView groups={t.stage2Groups} onComplete={complete} isCompleted={t.status === 'completed'} isAdmin={isAdmin} />}
+                </div>
+            );
+        }
+
+        function App() {
+            const auth = window.useAuthState();
+            return (
+                <window.AuthContext.Provider value={auth}>
+                    <window.Layout activePage="tournaments">
+                        <TournamentView />
+                    </window.Layout>
+                </window.AuthContext.Provider>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
