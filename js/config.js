@@ -18,16 +18,16 @@ const CONFIG = {
     firebase.initializeApp(CONFIG.FIREBASE);
     const db = firebase.firestore();
     const auth = firebase.auth();
-    const storage = firebase.storage();
     
     window.fb = {
-        db, auth, storage,
+        db, auth,
         googleProvider: new firebase.auth.GoogleAuthProvider(),
         collection: (name) => db.collection(name),
         doc: (col, id) => db.collection(col).doc(id),
         increment: firebase.firestore.FieldValue.increment,
         arrayUnion: firebase.firestore.FieldValue.arrayUnion,
-        arrayRemove: firebase.firestore.FieldValue.arrayRemove
+        arrayRemove: firebase.firestore.FieldValue.arrayRemove,
+        storage: () => firebase.storage() // Функция для получения storage
     };
     
     window.dispatchEvent(new Event('firebaseReady'));
