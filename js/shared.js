@@ -489,17 +489,17 @@ window.Layout = ({ children, activePage }) => {
         <div className="min-h-screen bg-black text-white">
             <header className="border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <a href="/NEW/index.html" className="text-2xl font-bold no-underline text-white hover:opacity-80 transition-opacity">
+                    <a href="./index.html" className="text-2xl font-bold no-underline text-white hover:opacity-80 transition-opacity">
                         Grechka <span className="text-white/40">•</span> Padel
                     </a>
                     <nav className="flex gap-8">
-                        <a href="/NEW/index.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'tournaments' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Турниры</a>
-                        <a href="/NEW/players.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'players' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Рейтинг</a>
+                        <a href="./index.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'tournaments' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Турниры</a>
+                        <a href="./players.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'players' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Рейтинг</a>
                     </nav>
                     <div>
                         {auth.user ? (
                             <div className="flex gap-3 items-center">
-                                <a href="/NEW/profile.html" className="no-underline">
+                                <a href="./profile.html" className="no-underline">
                                     <window.Avatar src={auth.user.photoURL} name={auth.user.displayName || auth.profile?.name} />
                                 </a>
                                 <button onClick={auth.logout} className="text-white/40 hover:text-white text-sm">Выйти</button>
