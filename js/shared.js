@@ -63,7 +63,7 @@ window.useAuthState = () => {
             } else {
                 const newProfile = { 
                     id: u.uid, 
-                    name: u.displayName || 'Игрок', 
+                    name: u.displayName || u.email?.split('@')[0] || 'Игрок', 
                     email: u.email, 
                     photoURL: u.photoURL, 
                     points: 0, 
@@ -71,6 +71,7 @@ window.useAuthState = () => {
                     wins: 0,
                     losses: 0,
                     tournamentsPlayed: 0,
+                    emailVerified: u.emailVerified,
                     createdAt: new Date().toISOString()
                 };
                 await ref.set(newProfile);
@@ -199,25 +200,142 @@ window.Tab = ({ active, children, ...props }) => (
 // === МОДАЛЬНЫЕ ОКНА ===
 window.AuthModal = ({ onClose }) => {
     const { login } = window.useAuth();
-    const handle = async () => { await login(); onClose(); };
-    
+    const [mode, setMode] = useState('main'); // main | emailLogin | emailSignup | emailSent
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleGoogleLogin = async () => {
+        try {
+            await login();
+            onClose();
+        } catch (err) {
+            setError('Ошибка входа через Google');
+        }
+    };
+
+    const handleEmailLogin = async () => {
+        setError('');
+        setLoading(true);
+        try {
+            await window.fb.auth.signInWithEmailAndPassword(email, password);
+            onClose();
+        } catch (err) {
+            setError(err.code === 'auth/user-not-found' ? 'Пользователь не найден' : 
+                     err.code === 'auth/wrong-password' ? 'Неверный пароль' :
+                     err.code === 'auth/invalid-email' ? 'Неверный email' :
+                     'Ошибка входа');
+        }
+        setLoading(false);
+    };
+
+    const handleEmailSignup = async () => {
+        setError('');
+        setLoading(true);
+        try {
+            const userCredential = await window.fb.auth.createUserWithEmailAndPassword(email, password);
+            await userCredential.user.sendEmailVerification();
+            setMode('emailSent');
+        } catch (err) {
+            setError(err.code === 'auth/email-already-in-use' ? 'Email уже используется' :
+                     err.code === 'auth/weak-password' ? 'Пароль должен быть минимум 6 символов' :
+                     err.code === 'auth/invalid-email' ? 'Неверный email' :
+                     'Ошибка регистрации');
+        }
+        setLoading(false);
+    };
+
+    if (mode === 'emailSent') {
+        return (
+            <window.Modal onClose={onClose}>
+                <window.Card className="p-10 max-w-md w-full">
+                    <div className="text-center">
+                        <div className="text-6xl mb-4">📧</div>
+                        <h3 className="text-2xl font-bold text-black mb-2">Проверьте почту</h3>
+                        <p className="text-gray-500 mb-6">Мы отправили письмо с подтверждением на <strong>{email}</strong></p>
+                        <p className="text-sm text-gray-400 mb-8">Перейдите по ссылке в письме, чтобы подтвердить аккаунт</p>
+                        <button onClick={onClose} className="w-full bg-black text-white px-6 py-3 rounded-2xl font-semibold hover:bg-gray-900 transition-all">
+                            Понятно
+                        </button>
+                    </div>
+                </window.Card>
+            </window.Modal>
+        );
+    }
+
+    if (mode === 'emailLogin') {
+        return (
+            <window.Modal onClose={onClose}>
+                <window.Card className="p-10 max-w-md w-full">
+                    <button onClick={() => setMode('main')} className="text-gray-400 hover:text-black mb-6">← Назад</button>
+                    <div className="text-center mb-8">
+                        <h3 className="text-3xl font-bold text-black mb-2">Вход</h3>
+                        <p className="text-gray-500">Введите email и пароль</p>
+                    </div>
+                    <div className="space-y-4">
+                        <window.Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" />
+                        <window.Input label="Пароль" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" />
+                        {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+                        <button onClick={handleEmailLogin} disabled={loading || !email || !password} className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-all disabled:opacity-50">
+                            {loading ? 'Загрузка...' : 'Войти'}
+                        </button>
+                    </div>
+                </window.Card>
+            </window.Modal>
+        );
+    }
+
+    if (mode === 'emailSignup') {
+        return (
+            <window.Modal onClose={onClose}>
+                <window.Card className="p-10 max-w-md w-full">
+                    <button onClick={() => setMode('main')} className="text-gray-400 hover:text-black mb-6">← Назад</button>
+                    <div className="text-center mb-8">
+                        <h3 className="text-3xl font-bold text-black mb-2">Регистрация</h3>
+                        <p className="text-gray-500">Создайте новый аккаунт</p>
+                    </div>
+                    <div className="space-y-4">
+                        <window.Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" />
+                        <window.Input label="Пароль" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••" />
+                        <p className="text-xs text-gray-400">Минимум 6 символов</p>
+                        {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+                        <button onClick={handleEmailSignup} disabled={loading || !email || !password} className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-all disabled:opacity-50">
+                            {loading ? 'Загрузка...' : 'Создать аккаунт'}
+                        </button>
+                    </div>
+                </window.Card>
+            </window.Modal>
+        );
+    }
+
     return (
         <window.Modal onClose={onClose}>
             <window.Card className="p-10 max-w-md w-full">
                 <div className="text-center mb-10">
                     <h3 className="text-3xl font-bold text-black mb-2">Добро пожаловать</h3>
-                    <p className="text-gray-500">Войдите через Google</p>
+                    <p className="text-gray-500">Выберите способ входа</p>
                 </div>
-                <button onClick={handle} className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-all flex items-center justify-center gap-3">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                    </svg>
-                    Войти через Google
-                </button>
-                <button onClick={onClose} className="w-full mt-4 text-gray-400 hover:text-black text-sm">Отмена</button>
+                <div className="space-y-3">
+                    <button onClick={handleGoogleLogin} className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-all flex items-center justify-center gap-3">
+                        <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                        Войти через Google
+                    </button>
+                    
+                    <button onClick={() => setMode('emailLogin')} className="w-full bg-white text-black px-6 py-4 rounded-2xl font-semibold border-2 border-gray-200 hover:border-gray-300 transition-all">
+                        Войти через почту
+                    </button>
+                    
+                    <button onClick={() => setMode('emailSignup')} className="w-full bg-gray-100 text-gray-700 px-6 py-3 rounded-2xl font-medium hover:bg-gray-200 transition-all text-sm">
+                        Создать аккаунт
+                    </button>
+                </div>
+                <button onClick={onClose} className="w-full mt-6 text-gray-400 hover:text-black text-sm">Отмена</button>
             </window.Card>
         </window.Modal>
     );
@@ -266,7 +384,9 @@ window.Layout = ({ children, activePage }) => {
                     <div>
                         {auth.user ? (
                             <div className="flex gap-3 items-center">
-                                <window.Avatar src={auth.user.photoURL} name={auth.user.displayName} />
+                                <a href="/NEW/profile.html" className="no-underline">
+                                    <window.Avatar src={auth.user.photoURL} name={auth.user.displayName || auth.profile?.name} />
+                                </a>
                                 <button onClick={auth.logout} className="text-white/40 hover:text-white text-sm">Выйти</button>
                             </div>
                         ) : (
