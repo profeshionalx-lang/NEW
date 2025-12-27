@@ -21,7 +21,6 @@
     <script type="text/babel">
         const { useState } = React;
 
-        // PairsEditor - редактор пар перед началом турнира
         function PairsEditor({ players, courts, onConfirm, onCancel }) {
             const [pairs, setPairs] = useState(() => {
                 const shuffled = [...players].sort(() => Math.random() - 0.5);
@@ -97,9 +96,7 @@
                             ))}
                         </div>
                         <button onClick={() => setPairs([...pairs, { id: pairs.length + 1, player1: null, player2: null }])} 
-                            className="w-full mt-4 p-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-gray-400 transition-all">
-                            + Добавить пару
-                        </button>
+                            className="w-full mt-4 p-4 border-2 border-dashed border-gray-200 rounded-xl text-gray-400 hover:border-gray-400 transition-all">+ Добавить пару</button>
                     </window.Card>
                     <div className="flex gap-4">
                         <window.Button onClick={() => onConfirm(pairs.filter(p => p.player1 || p.player2).map((p, i) => ({ 
@@ -112,7 +109,6 @@
             );
         }
 
-        // MatchCard - карточка матча
         function MatchCard({ match, onEdit, isAdmin }) {
             const hasResult = match.set1p1 !== '' && match.set1p2 !== '';
             const [p1, p2] = [parseInt(match.set1p1) || 0, parseInt(match.set1p2) || 0];
@@ -138,14 +134,55 @@
                 </div>
             );
         }
-      
-        // StageView - этап турнира
+
+        function GroupView({ group, stage, onUpdateMatch, colorClass, isAdmin }) {
+            const [editingMatch, setEditingMatch] = useState(null);
+            return (
+                <div className={`bg-gradient-to-br ${colorClass} rounded-3xl p-6 shadow-2xl`}>
+                    <div className="text-3xl font-black text-white mb-6 text-center">ГРУППА {group.name}</div>
+                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-4 mb-6">
+                        <table className="w-full text-white text-sm">
+                            <thead><tr className="border-b border-white border-opacity-30">
+                                <th className="p-2 text-left font-bold">М</th><th className="p-2 text-left font-bold">Пара</th>
+                                <th className="p-2 text-center font-bold">И</th><th className="p-2 text-center font-bold">О</th>
+                                <th className="p-2 text-center font-bold">+/-</th>
+                            </tr></thead>
+                            <tbody>
+                                {group.pairs.map((pair, idx) => (
+                                    <tr key={pair.id} className="border-b border-white border-opacity-20">
+                                        <td className="p-2"><span className="font-black text-lg">{idx + 1}</span></td>
+                                        <td className="p-2"><div className="font-bold">#{pair.number}</div><div className="text-xs opacity-90">{pair.player1}/{pair.player2}</div></td>
+                                        <td className="p-2 text-center">{pair.played || 0}</td>
+                                        <td className="p-2 text-center"><span className="font-black text-lg">{pair.points || 0}</span></td>
+                                        <td className={`p-2 text-center font-bold ${(pair.gamesDiff || 0) > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                                            {(pair.gamesDiff || 0) > 0 ? '+' : ''}{pair.gamesDiff || 0}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="space-y-3">
+                        {[1, 2, 3].map(round => {
+                            const rm = group.matches.filter(m => m.round === round);
+                            return rm.length > 0 && (
+                                <div key={round}>
+                                    <div className="text-white font-bold mb-2 text-sm opacity-90">РАУНД {round}</div>
+                                    {rm.map((m, idx) => <MatchCard key={idx} match={m} onEdit={() => setEditingMatch({ match: m, idx: group.matches.indexOf(m) })} isAdmin={isAdmin} />)}
+                                </div>
+                            );
+                        })}
+                    </div>
+                    {editingMatch && <window.ScoreModal match={editingMatch.match} onSave={(r) => { onUpdateMatch(group.id, editingMatch.idx, r, stage); setEditingMatch(null); }} onClose={() => setEditingMatch(null)} />}
+                </div>
+            );
+        }
+
         function StageView({ groups, stage, onUpdateMatch, isAdmin }) {
             const colors = ['from-rose-500 to-pink-500', 'from-blue-500 to-cyan-500', 'from-emerald-500 to-teal-500', 'from-purple-500 to-indigo-500'];
             return <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">{groups?.map((g, i) => <GroupView key={g.id} group={g} stage={stage} onUpdateMatch={onUpdateMatch} colorClass={colors[i % colors.length]} isAdmin={isAdmin} />)}</div>;
         }
 
-        // TableView - общая таблица
         function TableView({ groups, onNext, showNext }) {
             const allPairs = groups?.flatMap(g => g.pairs.map(p => ({ ...p, group: g.name }))).sort((a, b) => b.points - a.points || b.gamesDiff - a.gamesDiff) || [];
             return (
@@ -176,7 +213,6 @@
             );
         }
 
-        // FinalView - финальная таблица
         function FinalView({ groups, onComplete, isCompleted, isAdmin }) {
             const finalStandings = [];
             groups?.forEach((g, gIdx) => {
@@ -217,7 +253,6 @@
             );
         }
 
-        // TournamentInfo - информация о турнире
         function TournamentInfo({ tournament, isAdmin, user, isUserRegistered, onRegister, onUnregister, onStartTournament }) {
             const rp = tournament.registeredPlayers || [];
             const pairs = tournament.format === 'fixed' ? Array(Math.ceil(rp.length / 2)).fill().map((_, i) => ({ p1: rp[i * 2], p2: rp[i * 2 + 1], num: i + 1 })) : [];
@@ -284,7 +319,6 @@
             );
         }
 
-        // TournamentView - основной компонент
         function TournamentView() {
             const id = new URLSearchParams(window.location.search).get('id');
             const { user, isAdmin, showAuth } = window.useAuth();
