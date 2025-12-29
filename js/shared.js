@@ -329,7 +329,14 @@ window.AuthModal = ({ onClose }) => {
     
     return (
         <window.Modal onClose={onClose}>
-            <window.Card className="p-10 max-w-md w-full">
+            <window.Card className="p-10 max-w-md w-full relative">
+                <button 
+                    onClick={onClose}
+                    className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all"
+                >
+                    ×
+                </button>
+
                 <div className="text-center mb-10">
                     <h3 className="text-3xl font-bold text-black mb-2">Добро пожаловать</h3>
                     <p className="text-gray-500">Выберите способ входа</p>
@@ -338,7 +345,7 @@ window.AuthModal = ({ onClose }) => {
                 <div className="space-y-4">
                     <button 
                         onClick={handleGoogleLogin} 
-                        className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-900 transition-all flex items-center justify-center gap-3"
+                        className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all flex items-center justify-center gap-3"
                     >
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -360,186 +367,12 @@ window.AuthModal = ({ onClose }) => {
                     </button>
                 </div>
                 
-                <button 
-                    onClick={onClose} 
-                    className="w-full mt-6 text-gray-400 hover:text-black text-sm transition-all"
-                >
-                    Отмена
-                </button>
-            </window.Card>
-        </window.Modal>
-    );
-};
-
-window.EmailAuthModal = ({ onClose, onSuccess }) => {
-    const [mode, setMode] = useState('login'); // 'login' или 'register'
-    const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState({
-        email: '',
-        password: '',
-        name: '',
-        telegram: ''
-    });
-
-    const handleLogin = async () => {
-        if (!form.email || !form.password) {
-            alert('Заполните все поля');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            await window.fb.auth.signInWithEmailAndPassword(form.email, form.password);
-            onSuccess?.();
-            onClose();
-        } catch (error) {
-            if (error.code === 'auth/user-not-found') {
-                alert('Пользователь не найден. Зарегистрируйтесь.');
-            } else if (error.code === 'auth/wrong-password') {
-                alert('Неверный пароль');
-            } else {
-                alert('Ошибка входа: ' + error.message);
-            }
-        }
-        setLoading(false);
-    };
-
-    const handleRegister = async () => {
-        if (!form.email || !form.password || !form.name) {
-            alert('Заполните обязательные поля: Email, Пароль и Имя');
-            return;
-        }
-
-        if (form.password.length < 6) {
-            alert('Пароль должен содержать минимум 6 символов');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // Создаем аккаунт
-            const userCredential = await window.fb.auth.createUserWithEmailAndPassword(
-                form.email, 
-                form.password
-            );
-            
-            const user = userCredential.user;
-
-            // Обновляем displayName
-            await user.updateProfile({
-                displayName: form.name
-            });
-
-            // Создаем профиль игрока с дополнительными данными
-            await window.fb.doc('players', user.uid).set({
-                id: user.uid,
-                name: form.name,
-                email: form.email,
-                telegram: form.telegram || null,
-                photoURL: null,
-                points: 0,
-                totalMatches: 0,
-                wins: 0,
-                losses: 0,
-                tournamentsPlayed: 0,
-                gamesWon: 0,
-                gamesLost: 0,
-                createdAt: new Date().toISOString(),
-                source: 'email'
-            });
-
-            // Отправляем письмо подтверждения
-            await user.sendEmailVerification();
-            
-            alert('Регистрация успешна! Проверьте почту для подтверждения.');
-            onSuccess?.();
-            onClose();
-        } catch (error) {
-            if (error.code === 'auth/email-already-in-use') {
-                alert('Email уже используется');
-            } else if (error.code === 'auth/weak-password') {
-                alert('Слишком простой пароль');
-            } else {
-                alert('Ошибка регистрации: ' + error.message);
-            }
-        }
-        setLoading(false);
-    };
-
-    return (
-        <window.Modal onClose={onClose}>
-            <window.Card className="p-8 w-full max-w-2xl">
-                <button 
-                    onClick={onClose}
-                    className="float-right text-gray-400 hover:text-black text-2xl leading-none"
-                >
-                    ×
-                </button>
-                
-                <div className="mb-8">
-                    <h3 className="text-3xl font-bold text-black mb-2">
-                        {mode === 'login' ? 'Вход' : 'Регистрация'}
-                    </h3>
-                    <p className="text-gray-500">
-                        {mode === 'login' ? 'Войдите в свой аккаунт' : 'Создайте новый аккаунт'}
-                    </p>
-                </div>
-
-                <div className="space-y-4">
-                    {mode === 'register' && (
-                        <>
-                            <window.Input
-                                label="Имя и Фамилия *"
-                                value={form.name}
-                                onChange={e => setForm({...form, name: e.target.value})}
-                                placeholder="Александр Иванов"
-                                disabled={loading}
-                            />
-                            
-                            <window.Input
-                                label="Телеграм (опционально)"
-                                value={form.telegram}
-                                onChange={e => setForm({...form, telegram: e.target.value})}
-                                placeholder="@username или +79001234567"
-                                disabled={loading}
-                            />
-                        </>
-                    )}
-
-                    <window.Input
-                        label="Email *"
-                        type="email"
-                        value={form.email}
-                        onChange={e => setForm({...form, email: e.target.value})}
-                        placeholder="example@email.com"
-                        disabled={loading}
-                    />
-
-                    <window.Input
-                        label="Пароль *"
-                        type="password"
-                        value={form.password}
-                        onChange={e => setForm({...form, password: e.target.value})}
-                        placeholder="Минимум 6 символов"
-                        disabled={loading}
-                    />
-                </div>
-
-                <window.Button
-                    onClick={mode === 'login' ? handleLogin : handleRegister}
-                    className="w-full mt-6"
-                    disabled={loading}
-                >
-                    {loading ? 'Загрузка...' : (mode === 'login' ? 'Войти' : 'Создать аккаунт')}
-                </window.Button>
-
                 <div className="text-center mt-6">
                     <button
-                        onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                        onClick={() => setShowEmailAuth(true)}
                         className="text-gray-500 hover:text-black text-sm transition-all"
-                        disabled={loading}
                     >
-                        {mode === 'login' ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
+                        Создать аккаунт
                     </button>
                 </div>
             </window.Card>
