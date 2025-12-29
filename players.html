@@ -8,27 +8,21 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <style> * { font-family: 'Inter', sans-serif; } </style>
-    
+    <style>* { font-family: 'Inter', sans-serif; }</style>
     <script src="/NEW/js/config.js"></script>
     <script type="text/babel" src="/NEW/js/shared.js"></script>
 </head>
 <body class="bg-black">
     <div id="root"></div>
-
     <script type="text/babel">
         const { useState } = React;
 
         function CreatePlayer({ onClose }) {
-            const [form, setForm] = useState({ 
-                name: '', 
-                email: '', 
-                photoURL: '' 
-            });
+            const [form, setForm] = useState({ name: '', email: '', photoURL: '' });
             
             const submit = async () => {
                 if (!form.name.trim()) {
@@ -113,26 +107,23 @@
             return (
                 <window.Modal onClose={onClose}>
                     <window.Card className="p-8 w-96">
-                        <h3 className="text-black text-2xl font-bold mb-4">Редактировать игрока</h3>
+                        <h3 className="text-black text-2xl font-bold mb-4">Редактировать</h3>
                         <div className="space-y-4">
                             <window.Input 
                                 label="Имя" 
                                 value={form.name} 
                                 onChange={e => setForm({...form, name: e.target.value})}
-                                placeholder="Введите имя игрока"
                             />
                             <window.Input 
                                 label="Email" 
                                 type="email"
                                 value={form.email} 
                                 onChange={e => setForm({...form, email: e.target.value})}
-                                placeholder="email@example.com"
                             />
                             <window.Input 
                                 label="URL фото" 
                                 value={form.photoURL} 
                                 onChange={e => setForm({...form, photoURL: e.target.value})}
-                                placeholder="https://example.com/photo.jpg"
                             />
                             <div className="flex gap-4">
                                 <window.Button onClick={submit} className="flex-1">
@@ -152,103 +143,86 @@
             );
         }
 
-        function PlayerProfile({ player, onBack, isAdmin, onDelete, onEdit }) {
-            if (!player) return null;
-            
-            const winRate = player.totalMatches > 0 
-                ? ((player.wins / player.totalMatches) * 100).toFixed(0) 
-                : 0;
-
-            const handleDelete = () => {
-                if (confirm(`Вы уверены, что хотите удалить игрока "${player.name}"?\n\nВсе его данные будут удалены безвозвратно.`)) {
-                    onDelete(player.id);
-                }
-            };
-                
-            return (
-                <div>
-                    <div className="flex justify-between items-center mb-8">
-                        <window.Button variant="ghost" onClick={onBack}>
-                            ← Назад
-                        </window.Button>
-                        {isAdmin && (
-                            <div className="flex gap-3">
-                                <window.Button 
-                                    variant="secondary" 
-                                    onClick={onEdit}
-                                    className="bg-white/10 text-white hover:bg-white/20"
-                                >
-                                    ✏️ Редактировать
-                                </window.Button>
-                                <window.Button 
-                                    variant="danger" 
-                                    onClick={handleDelete}
-                                >
-                                    🗑️ Удалить
-                                </window.Button>
-                            </div>
-                        )}
-                    </div>
-                    <window.Card className="p-12">
-                        <div className="flex items-center gap-8 mb-12">
-                            <window.Avatar 
-                                src={player.photoURL || ''} 
-                                name={player.name || 'Игрок'} 
-                                size="xl" 
-                            />
-                            <div>
-                                <h2 className="text-4xl font-black text-black mb-2">{player.name || 'Игрок'}</h2>
-                                {player.email && (
-                                    <p className="text-gray-400">{player.email}</p>
-                                )}
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                            <window.StatBox label="Турниров" value={player.tournamentsPlayed || 0} />
-                            <window.StatBox label="Матчей" value={player.totalMatches || 0} />
-                            <window.StatBox label="Очков" value={player.points || 0} />
-                            <window.StatBox label="Винрейт" value={`${winRate}%`} />
-                        </div>
-                    </window.Card>
-                </div>
-            );
-        }
-
         function PlayersView() {
             const { isAdmin } = window.useAuth();
-            const players = window.useCollection('players').sort((a, b) => 
-                (b.points || 0) - (a.points || 0) || 
-                (b.totalMatches || 0) - (a.totalMatches || 0) ||
-                (a.name || '').localeCompare(b.name || '')
-            );
-            const [selectedPlayer, setSelectedPlayer] = useState(null);
+            const players = window.useCollection('players').sort((a, b) => (b.points || 0) - (a.points || 0));
+            const [selected, setSelected] = useState(null);
             const [creating, setCreating] = useState(false);
             const [editing, setEditing] = useState(false);
 
             const deletePlayer = async (playerId) => {
                 await window.fb.doc('players', playerId).delete();
-                setSelectedPlayer(null);
+                setSelected(null);
             };
 
-            if (editing && selectedPlayer) {
+            if (editing && selected) {
                 return (
                     <EditPlayer 
-                        player={selectedPlayer}
+                        player={selected}
                         onClose={() => setEditing(false)}
                         onSave={() => setEditing(false)}
                     />
                 );
             }
 
-            if (selectedPlayer) {
+            if (selected) {
+                const winRate = selected.totalMatches > 0 ? ((selected.wins / selected.totalMatches) * 100).toFixed(0) : 0;
                 return (
-                    <PlayerProfile 
-                        player={selectedPlayer} 
-                        onBack={() => setSelectedPlayer(null)}
-                        isAdmin={isAdmin}
-                        onDelete={deletePlayer}
-                        onEdit={() => setEditing(true)}
-                    />
+                    <div>
+                        <div className="flex justify-between items-center mb-8">
+                            <window.Button variant="ghost" onClick={() => setSelected(null)}>← Назад</window.Button>
+                            {isAdmin && (
+                                <div className="flex gap-3">
+                                    <window.Button 
+                                        variant="secondary" 
+                                        onClick={() => setEditing(true)}
+                                        className="bg-white/10 text-white hover:bg-white/20"
+                                    >
+                                        ✏️ Редактировать
+                                    </window.Button>
+                                    <window.Button 
+                                        variant="danger" 
+                                        onClick={() => {
+                                            if (confirm(`Вы уверены, что хотите удалить игрока "${selected.name}"?\n\nВсе его данные будут удалены безвозвратно.`)) {
+                                                deletePlayer(selected.id);
+                                            }
+                                        }}
+                                    >
+                                        🗑️ Удалить
+                                    </window.Button>
+                                </div>
+                            )}
+                        </div>
+                        <window.Card className="p-12">
+                            <div className="flex items-center gap-8 mb-12">
+                                <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-4xl">
+                                    {selected.photoURL ? <img src={selected.photoURL} className="w-24 h-24 rounded-full" /> : selected.name?.[0] || '?'}
+                                </div>
+                                <div>
+                                    <h2 className="text-4xl font-black text-black mb-2">{selected.name || 'Игрок'}</h2>
+                                    {selected.email && <p className="text-gray-400">{selected.email}</p>}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{selected.tournamentsPlayed || 0}</div>
+                                    <div className="text-gray-400 text-sm">Турниров</div>
+                                </div>
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{selected.totalMatches || 0}</div>
+                                    <div className="text-gray-400 text-sm">Матчей</div>
+                                </div>
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{selected.points || 0}</div>
+                                    <div className="text-gray-400 text-sm">Очков</div>
+                                </div>
+                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
+                                    <div className="text-4xl font-black text-black">{winRate}%</div>
+                                    <div className="text-gray-400 text-sm">Винрейт</div>
+                                </div>
+                            </div>
+                        </window.Card>
+                    </div>
                 );
             }
 
@@ -277,11 +251,11 @@
                             {players.map((p, i) => (
                                 <window.Card 
                                     key={p.id} 
-                                    className="p-5 cursor-pointer hover:shadow-lg transition-all flex items-center gap-6 group"
-                                    onClick={() => setSelectedPlayer(p)}
+                                    className="p-5 cursor-pointer hover:shadow-lg transition-all flex items-center gap-6 group" 
+                                    onClick={() => setSelected(p)}
                                 >
                                     <div className={window.cn(
-                                        'w-12 h-12 rounded-full flex items-center justify-center font-black text-xl',
+                                        'w-12 h-12 rounded-full flex items-center justify-center font-black text-xl', 
                                         i === 0 ? 'bg-black text-white' : 
                                         i === 1 ? 'bg-gray-400 text-white' : 
                                         i === 2 ? 'bg-gray-300 text-gray-700' : 
