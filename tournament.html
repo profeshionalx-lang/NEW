@@ -356,7 +356,7 @@
             );
         }
 
-        function AmericanaRoundView({ tournament, roundNumber, onUpdateScore, onNextRound, isAdmin }) {
+        function AmericanaRoundView({ tournament, roundNumber, onUpdateScore, onNextRound, isAdmin, user }) {
             const roundData = tournament.americanaRounds?.[roundNumber - 1];
             const [editingMatch, setEditingMatch] = useState(null);
             
@@ -366,6 +366,14 @@
             const isFinal = roundNumber === tournament.totalRounds;
             const allMatchesCompleted = roundData.courts.every(c => c.completed);
             const canStartNextRound = allMatchesCompleted && roundNumber < tournament.totalRounds && roundNumber === tournament.currentRound;
+            
+            // Определяем текст кнопки следующего раунда
+            let nextRoundButtonText = `Начать игру ${roundNumber + 1} →`;
+            if (roundNumber === tournament.totalRounds - 2) {
+                nextRoundButtonText = 'Начать полуфинал →';
+            } else if (roundNumber === tournament.totalRounds - 1) {
+                nextRoundButtonText = 'Начать финал →';
+            }
             
             // Для финала показываем только финальный матч (на самом высоком корте)
             const courtsToShow = isFinal 
@@ -379,33 +387,44 @@
                 'from-purple-500 to-indigo-500',
                 'from-orange-500 to-yellow-500'
             ];
+            
+            // Проверяем, может ли пользователь вводить результат для конкретного корта
+            const canUserEditCourt = (court) => {
+                if (isAdmin) return true;
+                if (!user) return false;
+                
+                // Проверяем, играет ли пользователь на этом корте
+                const playersInMatch = [
+                    court.pair1.player1.id,
+                    court.pair1.player2.id,
+                    court.pair2.player1.id,
+                    court.pair2.player2.id
+                ];
+                
+                return playersInMatch.includes(user.uid);
+            };
 
             return (
                 <div>
-                    {isFinal && (
-                        <div className="text-center mb-8">
-                            <div className="text-6xl mb-4">🏆</div>
-                            <h2 className="text-4xl font-bold text-white">Финал</h2>
-                        </div>
-                    )}
-                    
-                    {isAdmin && canStartNextRound && (
+                    {(isAdmin || user) && canStartNextRound && (
                         <div className="mb-8 flex justify-end">
                             <window.Button onClick={() => onNextRound(roundNumber)} className="bg-gradient-to-r from-green-500 to-emerald-500">
-                                {isSemifinal - 1 ? 'Начать Полуфинал →' : 
-                                 roundNumber === tournament.totalRounds - 2 ? 'Начать Финал →' :
-                                 `Начать игру ${roundNumber + 1} →`}
+                                {nextRoundButtonText}
                             </window.Button>
                         </div>
                     )}
                     
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className={window.cn(
+                        'grid gap-6',
+                        isFinal ? 'grid-cols-1 max-w-2xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'
+                    )}>
                         {courtsToShow.map((court, courtIdx) => {
                             const actualCourtIdx = isFinal ? 0 : courtIdx;
                             const score1 = court.score.set1p1;
                             const score2 = court.score.set1p2;
                             const hasScore = score1 !== '' && score2 !== '';
                             const winner = hasScore ? (parseInt(score1) > parseInt(score2) ? 1 : 2) : 0;
+                            const canEdit = canUserEditCourt(court);
                             
                             return (
                                 <div key={actualCourtIdx} className={`bg-gradient-to-br ${colors[actualCourtIdx % colors.length]} rounded-3xl p-6 shadow-2xl`}>
@@ -415,14 +434,14 @@
                                     
                                     <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-6 mb-4">
                                         {/* Пара 1 */}
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <window.Avatar src={court.pair1.player1.photoURL} name={court.pair1.player1.name} size="lg" />
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <window.Avatar src={court.pair1.player1.photoURL} name={court.pair1.player1.name} size="sm" />
                                             <div className="flex-1">
                                                 <div className="font-bold text-white">{court.pair1.player1.name}</div>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3 mb-6">
-                                            <window.Avatar src={court.pair1.player2.photoURL} name={court.pair1.player2.name} size="lg" />
+                                            <window.Avatar src={court.pair1.player2.photoURL} name={court.pair1.player2.name} size="sm" />
                                             <div className="flex-1">
                                                 <div className="font-bold text-white">{court.pair1.player2.name}</div>
                                             </div>
@@ -441,7 +460,7 @@
                                                         'text-5xl font-black',
                                                         winner === 2 ? 'text-white' : 'text-white/50'
                                                     )}>{score2}</div>
-                                                    {isAdmin && (
+                                                    {canEdit && (
                                                         <button 
                                                             onClick={() => setEditingMatch({ courtIdx: actualCourtIdx, court, roundNumber })}
                                                             className="ml-4 text-white/60 hover:text-white transition-all text-xl"
@@ -451,7 +470,7 @@
                                                     )}
                                                 </div>
                                             ) : (
-                                                isAdmin ? (
+                                                canEdit ? (
                                                     <window.Button 
                                                         onClick={() => setEditingMatch({ courtIdx: actualCourtIdx, court, roundNumber })}
                                                         className="bg-white text-purple-600"
@@ -465,14 +484,14 @@
                                         </div>
 
                                         {/* Пара 2 */}
-                                        <div className="flex items-center gap-3 mb-4">
-                                            <window.Avatar src={court.pair2.player1.photoURL} name={court.pair2.player1.name} size="lg" />
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <window.Avatar src={court.pair2.player1.photoURL} name={court.pair2.player1.name} size="sm" />
                                             <div className="flex-1">
                                                 <div className="font-bold text-white">{court.pair2.player1.name}</div>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <window.Avatar src={court.pair2.player2.photoURL} name={court.pair2.player2.name} size="lg" />
+                                            <window.Avatar src={court.pair2.player2.photoURL} name={court.pair2.player2.name} size="sm" />
                                             <div className="flex-1">
                                                 <div className="font-bold text-white">{court.pair2.player2.name}</div>
                                             </div>
@@ -1112,6 +1131,7 @@
                             onUpdateScore={updateAmericanaScore}
                             onNextRound={startNextAmericanaRound}
                             isAdmin={isAdmin}
+                            user={user}
                         />
                     )}
                     {tab === 'results' && <AmericanaResultsView tournament={t} />}
