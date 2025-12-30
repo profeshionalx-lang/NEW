@@ -200,8 +200,8 @@ window.Tab = ({ active, children, ...props }) => (
 );
 
 // === МОДАЛЬНЫЕ ОКНА ===
-window.EmailAuthModal = ({ onClose, onSuccess }) => {
-    const [mode, setMode] = useState('login');
+window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
+    const [mode, setMode] = useState(initialMode);
     const [loading, setLoading] = useState(false);
     const [form, setForm] = useState({
         email: '',
@@ -344,13 +344,13 @@ window.EmailAuthModal = ({ onClose, onSuccess }) => {
                     />
                 </div>
 
-                <window.Button
+                <button
                     onClick={mode === 'login' ? handleLogin : handleRegister}
-                    className="w-full mt-6 bg-black text-white hover:bg-gray-800"
+                    className="w-full mt-6 bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all disabled:opacity-50"
                     disabled={loading}
                 >
                     {loading ? 'Загрузка...' : (mode === 'login' ? 'Войти' : 'Создать аккаунт')}
-                </window.Button>
+                </button>
 
                 <div className="text-center mt-6">
                     <button
@@ -369,6 +369,7 @@ window.EmailAuthModal = ({ onClose, onSuccess }) => {
 window.AuthModal = ({ onClose }) => {
     const { login } = window.useAuth();
     const [showEmailAuth, setShowEmailAuth] = useState(false);
+    const [emailAuthMode, setEmailAuthMode] = useState('login');
     
     const handleGoogleLogin = async () => { 
         await login(); 
@@ -376,7 +377,11 @@ window.AuthModal = ({ onClose }) => {
     };
 
     if (showEmailAuth) {
-        return <window.EmailAuthModal onClose={onClose} onSuccess={() => setShowEmailAuth(false)} />;
+        return <window.EmailAuthModal 
+            onClose={onClose} 
+            onSuccess={() => setShowEmailAuth(false)} 
+            initialMode={emailAuthMode}
+        />;
     }
     
     return (
@@ -409,7 +414,10 @@ window.AuthModal = ({ onClose }) => {
                     </button>
 
                     <button
-                        onClick={() => setShowEmailAuth(true)}
+                        onClick={() => {
+                            setEmailAuthMode('login');
+                            setShowEmailAuth(true);
+                        }}
                         className="w-full bg-gray-100 text-black px-6 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-3"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -421,7 +429,10 @@ window.AuthModal = ({ onClose }) => {
                 
                 <div className="text-center mt-6">
                     <button
-                        onClick={() => setShowEmailAuth(true)}
+                        onClick={() => {
+                            setEmailAuthMode('register');
+                            setShowEmailAuth(true);
+                        }}
                         className="text-gray-500 hover:text-black text-sm transition-all"
                     >
                         Создать аккаунт
