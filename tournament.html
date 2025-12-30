@@ -128,7 +128,24 @@
 
             const handleConfirm = () => {
                 if (isAmericana) {
-                    onConfirm(courtSetup);
+                    // Генерируем имена для пустых слотов
+                    let playerCounter = 1;
+                    const processedSetup = courtSetup.map(court => ({
+                        courtNumber: court.courtNumber,
+                        pairs: court.pairs.map(pair => ({
+                            player1: pair.player1 || { 
+                                id: `auto_${Date.now()}_${playerCounter}`, 
+                                name: `Игрок #${playerCounter++}`, 
+                                photoURL: null 
+                            },
+                            player2: pair.player2 || { 
+                                id: `auto_${Date.now()}_${playerCounter}`, 
+                                name: `Игрок #${playerCounter++}`, 
+                                photoURL: null 
+                            }
+                        }))
+                    }));
+                    onConfirm(processedSetup);
                 } else {
                     onConfirm(courtSetup.filter(p => p.player1 || p.player2).map((p, i) => ({ 
                         id: i + 1, number: i + 1, player1: p.player1?.name || 'TBD', player2: p.player2?.name || 'TBD', 
@@ -238,11 +255,13 @@
                     
                     // Обрабатываем игроков пары 1
                     [court.pair1.player1, court.pair1.player2].forEach(player => {
+                        if (!player || !player.id) return; // Пропускаем null игроков
+                        
                         if (!playerStats[player.id]) {
                             playerStats[player.id] = {
                                 id: player.id,
-                                name: player.name,
-                                photoURL: player.photoURL,
+                                name: player.name || 'Игрок',
+                                photoURL: player.photoURL || null,
                                 points: 0,
                                 wins: 0,
                                 losses: 0,
@@ -265,11 +284,13 @@
                     
                     // Обрабатываем игроков пары 2
                     [court.pair2.player1, court.pair2.player2].forEach(player => {
+                        if (!player || !player.id) return; // Пропускаем null игроков
+                        
                         if (!playerStats[player.id]) {
                             playerStats[player.id] = {
                                 id: player.id,
-                                name: player.name,
-                                photoURL: player.photoURL,
+                                name: player.name || 'Игрок',
+                                photoURL: player.photoURL || null,
                                 points: 0,
                                 wins: 0,
                                 losses: 0,
@@ -935,6 +956,7 @@
                         currentRound: 1,
                         partnerships: {} // История партнерств
                     });
+                    setTab('round1'); // Переходим на первый раунд
                 } else {
                     // Group Stage турнир (старая логика)
                     await window.fb.doc('tournaments', id).update({ 
@@ -942,10 +964,10 @@
                         pairs: pairsData, 
                         stage1Groups: window.generateGroups(pairsData, t.courts || 2) 
                     });
+                    setTab('stage1');
                 }
                 
                 setShowPairsEditor(false);
-                setTab(isAmericana ? 'americana' : 'stage1');
             };
 
             const updateAmericanaScore = async (courtIdx, result, roundNumber) => {
