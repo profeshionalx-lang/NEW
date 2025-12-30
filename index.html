@@ -49,7 +49,18 @@
         }
 
         function CreateTournament({ onSubmit, onCancel }) {
-            const [form, setForm] = useState({ name: '', date: '', time: '', location: '', price: '', maxPlayers: 16, courts: 2, format: 'fixed' });
+            const [form, setForm] = useState({ 
+                name: '', 
+                date: '', 
+                time: '', 
+                location: '', 
+                price: '', 
+                maxPlayers: 16, 
+                courts: 2, 
+                tournamentFormat: 'americana',  // 'americana' или 'group-stage'
+                partnerMode: 'rotating',  // 'fixed' или 'rotating' (только для americana)
+                totalRounds: 6  // количество раундов (только для americana)
+            });
             const u = (k, v) => setForm(f => ({ ...f, [k]: v }));
             
             return (
@@ -61,15 +72,39 @@
                             <window.Input label="Название" value={form.name} onChange={e => u('name', e.target.value)} placeholder="Sunday Cup" />
                             
                             <div>
-                                <label className="block text-sm font-medium text-gray-500 mb-3">Формат</label>
+                                <label className="block text-sm font-medium text-gray-500 mb-3">Формат турнира</label>
                                 <div className="grid grid-cols-2 gap-4">
-                                    {[['fixed', '👫 Фиксированные пары'], ['rotating', '🔄 Смена партнёров']].map(([val, title]) => (
-                                        <button key={val} type="button" onClick={() => u('format', val)} className={window.cn('p-4 rounded-2xl border-2 text-left transition-all', form.format === val ? 'border-black bg-black text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300')}>
+                                    {[['americana', '🎾 Americana'], ['group-stage', '📊 Group Stage']].map(([val, title]) => (
+                                        <button key={val} type="button" onClick={() => u('tournamentFormat', val)} className={window.cn('p-4 rounded-2xl border-2 text-left transition-all', form.tournamentFormat === val ? 'border-black bg-black text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300')}>
                                             <div className="font-semibold">{title}</div>
                                         </button>
                                     ))}
                                 </div>
                             </div>
+
+                            {form.tournamentFormat === 'americana' && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-500 mb-3">Партнёры</label>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {[['fixed', '👫 Фиксированные пары'], ['rotating', '🔄 Смена партнёров']].map(([val, title]) => (
+                                                <button key={val} type="button" onClick={() => u('partnerMode', val)} className={window.cn('p-4 rounded-2xl border-2 text-left transition-all', form.partnerMode === val ? 'border-black bg-black text-white' : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300')}>
+                                                    <div className="font-semibold">{title}</div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <window.Input 
+                                        label="Количество раундов" 
+                                        type="number" 
+                                        min="1" 
+                                        max="20" 
+                                        value={form.totalRounds} 
+                                        onChange={e => u('totalRounds', +e.target.value)} 
+                                    />
+                                </>
+                            )}
 
                             <div className="grid grid-cols-2 gap-6">
                                 <window.Input label="Дата" type="date" value={form.date} onChange={e => u('date', e.target.value)} />
@@ -113,8 +148,14 @@
             const create = async (data) => {
                 const id = 't_' + Date.now();
                 await window.fb.doc('tournaments', id).set({ 
-                    id, ...data, status: 'upcoming', deleted: false, createdAt: new Date().toISOString(), 
-                    createdBy: user?.uid || null, registeredPlayers: [], pairs: [] 
+                    id, 
+                    ...data, 
+                    status: 'upcoming', 
+                    deleted: false, 
+                    createdAt: new Date().toISOString(), 
+                    createdBy: user?.uid || null, 
+                    registeredPlayers: [], 
+                    pairs: [] 
                 });
                 window.location.href = `./tournament.html?id=${id}`;
             };
