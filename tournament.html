@@ -223,6 +223,280 @@
             );
         }
 
+        function AmericanaResultsView({ tournament }) {
+            // Собираем статистику по каждому игроку
+            const playerStats = {};
+            
+            tournament.americanaRounds?.forEach(round => {
+                round.courts.forEach(court => {
+                    const score1 = parseInt(court.score.set1p1) || 0;
+                    const score2 = parseInt(court.score.set1p2) || 0;
+                    
+                    if (court.score.set1p1 === '' || court.score.set1p2 === '') return;
+                    
+                    const winner = score1 > score2 ? 1 : 2;
+                    
+                    // Обрабатываем игроков пары 1
+                    [court.pair1.player1, court.pair1.player2].forEach(player => {
+                        if (!playerStats[player.id]) {
+                            playerStats[player.id] = {
+                                id: player.id,
+                                name: player.name,
+                                photoURL: player.photoURL,
+                                points: 0,
+                                wins: 0,
+                                losses: 0,
+                                gamesWon: 0,
+                                gamesLost: 0,
+                                gamesDiff: 0
+                            };
+                        }
+                        
+                        playerStats[player.id].gamesWon += score1;
+                        playerStats[player.id].gamesLost += score2;
+                        
+                        if (winner === 1) {
+                            playerStats[player.id].points += 3;
+                            playerStats[player.id].wins += 1;
+                        } else {
+                            playerStats[player.id].losses += 1;
+                        }
+                    });
+                    
+                    // Обрабатываем игроков пары 2
+                    [court.pair2.player1, court.pair2.player2].forEach(player => {
+                        if (!playerStats[player.id]) {
+                            playerStats[player.id] = {
+                                id: player.id,
+                                name: player.name,
+                                photoURL: player.photoURL,
+                                points: 0,
+                                wins: 0,
+                                losses: 0,
+                                gamesWon: 0,
+                                gamesLost: 0,
+                                gamesDiff: 0
+                            };
+                        }
+                        
+                        playerStats[player.id].gamesWon += score2;
+                        playerStats[player.id].gamesLost += score1;
+                        
+                        if (winner === 2) {
+                            playerStats[player.id].points += 3;
+                            playerStats[player.id].wins += 1;
+                        } else {
+                            playerStats[player.id].losses += 1;
+                        }
+                    });
+                });
+            });
+            
+            // Вычисляем разницу геймов
+            Object.values(playerStats).forEach(player => {
+                player.gamesDiff = player.gamesWon - player.gamesLost;
+            });
+            
+            // Сортируем по очкам, потом по разнице геймов
+            const sortedPlayers = Object.values(playerStats).sort((a, b) => 
+                b.points - a.points || b.gamesDiff - a.gamesDiff || b.gamesWon - a.gamesWon
+            );
+            
+            return (
+                <div className="bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500 rounded-3xl p-8 shadow-2xl">
+                    <h3 className="text-4xl font-black text-white mb-6 text-center">🏆 ИТОГОВЫЕ РЕЗУЛЬТАТЫ</h3>
+                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl overflow-hidden">
+                        <table className="w-full text-white">
+                            <thead>
+                                <tr className="border-b border-white border-opacity-30">
+                                    <th className="p-4 text-left font-bold">Место</th>
+                                    <th className="p-4 text-left font-bold">Игрок</th>
+                                    <th className="p-4 text-center font-bold">Очки</th>
+                                    <th className="p-4 text-center font-bold">Побед</th>
+                                    <th className="p-4 text-center font-bold">Поражений</th>
+                                    <th className="p-4 text-center font-bold">+/-</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedPlayers.map((player, idx) => (
+                                    <tr key={player.id} className="border-b border-white border-opacity-20">
+                                        <td className="p-4">
+                                            <span className={window.cn(
+                                                'inline-flex items-center justify-center w-12 h-12 rounded-full font-black text-xl',
+                                                idx === 0 ? 'bg-yellow-300 text-yellow-900' :
+                                                idx === 1 ? 'bg-gray-300 text-gray-900' :
+                                                idx === 2 ? 'bg-orange-300 text-orange-900' :
+                                                'bg-white bg-opacity-50'
+                                            )}>{idx + 1}</span>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex items-center gap-3">
+                                                <window.Avatar src={player.photoURL} name={player.name} />
+                                                <div className="font-bold text-lg">{player.name}</div>
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <span className="font-black text-2xl">{player.points}</span>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <span className="font-semibold text-lg">{player.wins}</span>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <span className="font-semibold text-lg">{player.losses}</span>
+                                        </td>
+                                        <td className={`p-4 text-center font-bold text-xl ${player.gamesDiff > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                                            {player.gamesDiff > 0 ? '+' : ''}{player.gamesDiff}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        function AmericanaRoundView({ tournament, roundNumber, onUpdateScore, onNextRound, isAdmin }) {
+            const roundData = tournament.americanaRounds?.[roundNumber - 1];
+            const [editingMatch, setEditingMatch] = useState(null);
+            
+            if (!roundData) return <div className="text-white">Загрузка...</div>;
+            
+            const isSemifinal = roundNumber === tournament.totalRounds - 1;
+            const isFinal = roundNumber === tournament.totalRounds;
+            const allMatchesCompleted = roundData.courts.every(c => c.completed);
+            const canStartNextRound = allMatchesCompleted && roundNumber < tournament.totalRounds && roundNumber === tournament.currentRound;
+            
+            // Для финала показываем только финальный матч (на самом высоком корте)
+            const courtsToShow = isFinal 
+                ? [roundData.courts[0]] // Только топ-корт
+                : roundData.courts;
+            
+            const colors = [
+                'from-rose-500 to-pink-500', 
+                'from-blue-500 to-cyan-500', 
+                'from-emerald-500 to-teal-500', 
+                'from-purple-500 to-indigo-500',
+                'from-orange-500 to-yellow-500'
+            ];
+
+            return (
+                <div>
+                    {isFinal && (
+                        <div className="text-center mb-8">
+                            <div className="text-6xl mb-4">🏆</div>
+                            <h2 className="text-4xl font-bold text-white">Финал</h2>
+                        </div>
+                    )}
+                    
+                    {isAdmin && canStartNextRound && (
+                        <div className="mb-8 flex justify-end">
+                            <window.Button onClick={() => onNextRound(roundNumber)} className="bg-gradient-to-r from-green-500 to-emerald-500">
+                                {isSemifinal - 1 ? 'Начать Полуфинал →' : 
+                                 roundNumber === tournament.totalRounds - 2 ? 'Начать Финал →' :
+                                 `Начать игру ${roundNumber + 1} →`}
+                            </window.Button>
+                        </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {courtsToShow.map((court, courtIdx) => {
+                            const actualCourtIdx = isFinal ? 0 : courtIdx;
+                            const score1 = court.score.set1p1;
+                            const score2 = court.score.set1p2;
+                            const hasScore = score1 !== '' && score2 !== '';
+                            const winner = hasScore ? (parseInt(score1) > parseInt(score2) ? 1 : 2) : 0;
+                            
+                            return (
+                                <div key={actualCourtIdx} className={`bg-gradient-to-br ${colors[actualCourtIdx % colors.length]} rounded-3xl p-6 shadow-2xl`}>
+                                    <div className="text-3xl font-black text-white mb-6 text-center">
+                                        {isFinal ? 'ФИНАЛ' : `КОРТ ${court.courtNumber}`}
+                                    </div>
+                                    
+                                    <div className="bg-white bg-opacity-20 backdrop-blur-sm rounded-2xl p-6 mb-4">
+                                        {/* Пара 1 */}
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <window.Avatar src={court.pair1.player1.photoURL} name={court.pair1.player1.name} size="lg" />
+                                            <div className="flex-1">
+                                                <div className="font-bold text-white">{court.pair1.player1.name}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 mb-6">
+                                            <window.Avatar src={court.pair1.player2.photoURL} name={court.pair1.player2.name} size="lg" />
+                                            <div className="flex-1">
+                                                <div className="font-bold text-white">{court.pair1.player2.name}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* VS и счет */}
+                                        <div className="text-center mb-6">
+                                            {hasScore ? (
+                                                <div className="flex items-center justify-center gap-4">
+                                                    <div className={window.cn(
+                                                        'text-5xl font-black',
+                                                        winner === 1 ? 'text-white' : 'text-white/50'
+                                                    )}>{score1}</div>
+                                                    <span className="text-3xl text-white">:</span>
+                                                    <div className={window.cn(
+                                                        'text-5xl font-black',
+                                                        winner === 2 ? 'text-white' : 'text-white/50'
+                                                    )}>{score2}</div>
+                                                    {isAdmin && (
+                                                        <button 
+                                                            onClick={() => setEditingMatch({ courtIdx: actualCourtIdx, court, roundNumber })}
+                                                            className="ml-4 text-white/60 hover:text-white transition-all text-xl"
+                                                        >
+                                                            ✏️
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                isAdmin ? (
+                                                    <window.Button 
+                                                        onClick={() => setEditingMatch({ courtIdx: actualCourtIdx, court, roundNumber })}
+                                                        className="bg-white text-purple-600"
+                                                    >
+                                                        Ввести счет
+                                                    </window.Button>
+                                                ) : (
+                                                    <span className="text-white/50 text-2xl">0 : 0</span>
+                                                )
+                                            )}
+                                        </div>
+
+                                        {/* Пара 2 */}
+                                        <div className="flex items-center gap-3 mb-4">
+                                            <window.Avatar src={court.pair2.player1.photoURL} name={court.pair2.player1.name} size="lg" />
+                                            <div className="flex-1">
+                                                <div className="font-bold text-white">{court.pair2.player1.name}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <window.Avatar src={court.pair2.player2.photoURL} name={court.pair2.player2.name} size="lg" />
+                                            <div className="flex-1">
+                                                <div className="font-bold text-white">{court.pair2.player2.name}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {editingMatch && (
+                        <window.ScoreModal 
+                            match={{ set1p1: editingMatch.court.score.set1p1, set1p2: editingMatch.court.score.set1p2 }}
+                            onSave={(result) => {
+                                onUpdateScore(editingMatch.courtIdx, result, editingMatch.roundNumber);
+                                setEditingMatch(null);
+                            }}
+                            onClose={() => setEditingMatch(null)}
+                        />
+                    )}
+                </div>
+            );
+        }
+
         function AmericanaView({ tournament, onUpdateScore, onNextRound, isAdmin }) {
             const currentRoundData = tournament.americanaRounds?.[tournament.currentRound - 1];
             const [editingMatch, setEditingMatch] = useState(null);
@@ -655,15 +929,16 @@
                 setTab(isAmericana ? 'americana' : 'stage1');
             };
 
-            const updateAmericanaScore = async (courtIdx, result) => {
+            const updateAmericanaScore = async (courtIdx, result, roundNumber) => {
                 const rounds = [...t.americanaRounds];
-                const currentRoundData = rounds[t.currentRound - 1];
-                currentRoundData.courts[courtIdx].score = result;
-                currentRoundData.courts[courtIdx].completed = true;
+                const targetRound = roundNumber || t.currentRound;
+                const roundData = rounds[targetRound - 1];
+                roundData.courts[courtIdx].score = result;
+                roundData.courts[courtIdx].completed = true;
                 
                 // Обновляем историю партнерств
                 const partnerships = { ...t.partnerships };
-                const court = currentRoundData.courts[courtIdx];
+                const court = roundData.courts[courtIdx];
                 window.updatePartnerships(partnerships, court.pair1);
                 window.updatePartnerships(partnerships, court.pair2);
                 
@@ -673,16 +948,54 @@
                 });
             };
 
-            const startNextAmericanaRound = async () => {
-                const currentRoundData = t.americanaRounds[t.currentRound - 1];
-                const isFixed = t.partnerMode === 'fixed';
-                const nextRound = window.generateNextAmericanaRound(currentRoundData, t.partnerships || {}, isFixed);
+            const startNextAmericanaRound = async (currentRoundNumber) => {
+                const currentRoundData = t.americanaRounds[currentRoundNumber - 1];
+                const nextRoundNumber = currentRoundNumber + 1;
+                const isSemifinal = nextRoundNumber === t.totalRounds - 1;
+                const isFinal = nextRoundNumber === t.totalRounds;
+                
+                let nextRound;
+                
+                if (isFinal) {
+                    // Генерируем финал: победители с 2-х верхних кортов полуфинала
+                    const semifinalCourts = currentRoundData.courts.sort((a, b) => b.courtNumber - a.courtNumber);
+                    const topCourts = [semifinalCourts[0], semifinalCourts[1]]; // 2 верхних корта
+                    
+                    const finalPlayers = [];
+                    topCourts.forEach(court => {
+                        const score1 = parseInt(court.score.set1p1) || 0;
+                        const score2 = parseInt(court.score.set1p2) || 0;
+                        const winners = score1 > score2 ? court.pair1 : court.pair2;
+                        finalPlayers.push(winners.player1, winners.player2);
+                    });
+                    
+                    const isFixed = t.partnerMode === 'fixed';
+                    const finalPairs = window.formNewPairs(finalPlayers, t.partnerships || {}, isFixed);
+                    
+                    nextRound = {
+                        roundNumber: nextRoundNumber,
+                        courts: [{
+                            courtNumber: t.courts, // Самый высокий корт
+                            pair1: finalPairs[0],
+                            pair2: finalPairs[1],
+                            score: { set1p1: '', set1p2: '' },
+                            completed: false
+                        }]
+                    };
+                } else {
+                    // Обычная генерация следующего раунда
+                    const isFixed = t.partnerMode === 'fixed';
+                    nextRound = window.generateNextAmericanaRound(currentRoundData, t.partnerships || {}, isFixed);
+                }
                 
                 const rounds = [...t.americanaRounds, nextRound];
                 await window.fb.doc('tournaments', id).update({
                     americanaRounds: rounds,
-                    currentRound: t.currentRound + 1
+                    currentRound: nextRoundNumber
                 });
+                
+                // Переключаемся на новую вкладку
+                setTab(`round${nextRoundNumber}`);
             };
 
             const updateMatch = async (groupId, matchIdx, result, stage) => {
@@ -724,8 +1037,24 @@
             const tabLabels = { info: 'Информация' };
             
             if (t.status === 'americana') {
-                tabs.push('americana');
-                tabLabels.americana = 'Раунды';
+                // Добавляем вкладки для каждого раунда
+                for (let i = 1; i <= (t.currentRound || 1); i++) {
+                    const tabKey = `round${i}`;
+                    tabs.push(tabKey);
+                    
+                    // Специальные названия для последних раундов
+                    if (i === t.totalRounds) {
+                        tabLabels[tabKey] = 'Финал';
+                    } else if (i === t.totalRounds - 1) {
+                        tabLabels[tabKey] = 'Полуфинал';
+                    } else {
+                        tabLabels[tabKey] = `Игра ${i}`;
+                    }
+                }
+                
+                // Добавляем вкладку результатов
+                tabs.push('results');
+                tabLabels.results = 'Результаты';
             } else if (t.stage1Groups) {
                 tabs.push('stage1', 'table1');
                 tabLabels.stage1 = 'Этап 1';
@@ -776,7 +1105,16 @@
                     </div>
 
                     {tab === 'info' && <TournamentInfo tournament={t} isAdmin={isAdmin} user={user} isUserRegistered={isRegistered} onRegister={register} onUnregister={unregister} onStartTournament={() => setShowPairsEditor(true)} />}
-                    {tab === 'americana' && <AmericanaView tournament={t} onUpdateScore={updateAmericanaScore} onNextRound={startNextAmericanaRound} isAdmin={isAdmin} />}
+                    {tab.startsWith('round') && (
+                        <AmericanaRoundView 
+                            tournament={t} 
+                            roundNumber={parseInt(tab.replace('round', ''))}
+                            onUpdateScore={updateAmericanaScore}
+                            onNextRound={startNextAmericanaRound}
+                            isAdmin={isAdmin}
+                        />
+                    )}
+                    {tab === 'results' && <AmericanaResultsView tournament={t} />}
                     {tab === 'stage1' && <StageView groups={t.stage1Groups} stage={1} onUpdateMatch={updateMatch} isAdmin={isAdmin} />}
                     {tab === 'table1' && <TableView groups={t.stage1Groups} onNext={generateStage2} showNext={isAdmin && !t.stage2Groups} />}
                     {tab === 'stage2' && <StageView groups={t.stage2Groups} stage={2} onUpdateMatch={updateMatch} isAdmin={isAdmin} />}
