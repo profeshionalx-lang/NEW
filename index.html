@@ -23,7 +23,9 @@
         const { useState } = React;
 
         function TournamentCard({ tournament: t, canDelete, onDelete }) {
-            const status = t.status === 'completed' ? 'completed' : (t.status === 'stage1' || t.status === 'stage2') ? 'active' : 'default';
+            const status = t.status === 'completed' ? 'completed' : 
+                          (t.status === 'stage1' || t.status === 'stage2' || t.status === 'americana') ? 'active' : 
+                          'default';
             return (
                 <a href={`./tournament.html?id=${t.id}`} className="block no-underline">
                     <window.Card className="p-6 cursor-pointer group hover:shadow-xl transition-all h-full relative">
@@ -141,7 +143,7 @@
             
             const groups = {
                 upcoming: tournaments.filter(t => t.status === 'upcoming'),
-                active: tournaments.filter(t => t.status === 'stage1' || t.status === 'stage2'),
+                active: tournaments.filter(t => t.status === 'stage1' || t.status === 'stage2' || t.status === 'americana'),
                 completed: tournaments.filter(t => t.status === 'completed')
             };
 
