@@ -287,7 +287,7 @@ window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
 
     return (
         <window.Modal onClose={onClose}>
-            <window.Card className="p-8 w-full max-w-xl relative">
+            <window.Card className="p-8 w-full max-w-3xl relative">
                 <button 
                     onClick={onClose}
                     className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all"
@@ -304,9 +304,9 @@ window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
                     </p>
                 </div>
 
-                <div className="space-y-4">
-                    {mode === 'register' && (
-                        <>
+                {mode === 'register' ? (
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-4">
                             <window.Input
                                 label="Имя и Фамилия *"
                                 value={form.name}
@@ -322,27 +322,49 @@ window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
                                 placeholder="@username"
                                 disabled={loading}
                             />
-                        </>
-                    )}
+                        </div>
 
-                    <window.Input
-                        label="Email *"
-                        type="email"
-                        value={form.email}
-                        onChange={e => setForm({...form, email: e.target.value})}
-                        placeholder="example@email.com"
-                        disabled={loading}
-                    />
+                        <div className="space-y-4">
+                            <window.Input
+                                label="Email *"
+                                type="email"
+                                value={form.email}
+                                onChange={e => setForm({...form, email: e.target.value})}
+                                placeholder="example@email.com"
+                                disabled={loading}
+                            />
 
-                    <window.Input
-                        label="Пароль *"
-                        type="password"
-                        value={form.password}
-                        onChange={e => setForm({...form, password: e.target.value})}
-                        placeholder="Минимум 6 символов"
-                        disabled={loading}
-                    />
-                </div>
+                            <window.Input
+                                label="Пароль *"
+                                type="password"
+                                value={form.password}
+                                onChange={e => setForm({...form, password: e.target.value})}
+                                placeholder="Минимум 6 символов"
+                                disabled={loading}
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <window.Input
+                            label="Email *"
+                            type="email"
+                            value={form.email}
+                            onChange={e => setForm({...form, email: e.target.value})}
+                            placeholder="example@email.com"
+                            disabled={loading}
+                        />
+
+                        <window.Input
+                            label="Пароль *"
+                            type="password"
+                            value={form.password}
+                            onChange={e => setForm({...form, password: e.target.value})}
+                            placeholder="Минимум 6 символов"
+                            disabled={loading}
+                        />
+                    </div>
+                )}
 
                 <button
                     onClick={mode === 'login' ? handleLogin : handleRegister}
@@ -485,10 +507,10 @@ window.Layout = ({ children, activePage }) => {
                     </nav>
                     <div>
                         {auth.user ? (
-                            <div className="flex gap-3 items-center">
+                            <a href="/NEW/profile.html" className="flex gap-3 items-center no-underline cursor-pointer group">
                                 <window.Avatar src={auth.user.photoURL} name={auth.user.displayName} />
-                                <button onClick={auth.logout} className="text-white/40 hover:text-white text-sm">Выйти</button>
-                            </div>
+                                <span className="text-white/40 group-hover:text-white text-sm transition-all">Профиль</span>
+                            </a>
                         ) : (
                             <window.Button onClick={() => setShowAuth(true)}>Войти</window.Button>
                         )}
