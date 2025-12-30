@@ -255,7 +255,7 @@ window.generateNextAmericanaRound = (currentRound, partnerships, isFixed) => {
                 const score1Above = parseInt(courtAbove.score.set1p1) || 0;
                 const score2Above = parseInt(courtAbove.score.set1p2) || 0;
                 const losersAbove = score1Above > score2Above ? courtAbove.pair2 : courtAbove.pair1;
-                playersForCourt = [...losersAbove.player1, losersAbove.player2, ...losersHere];
+                playersForCourt = [losersAbove.player1, losersAbove.player2, ...losersHere];
             } else {
                 playersForCourt = losersHere;
             }
