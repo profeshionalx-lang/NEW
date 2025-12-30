@@ -9,92 +9,6 @@ window.formatDate = (d, o = { day: 'numeric', month: 'short' }) => new Date(d).t
 window.AuthContext = createContext(null);
 window.useAuth = () => useContext(window.AuthContext);
 
-// Telegram Auth Helper
-window.telegramAuth = {
-    // Проверка подписи Telegram данных
-    checkSignature: async (data) => {
-        const { hash, ...authData } = data;
-        const checkString = Object.keys(authData)
-            .sort()
-            .map(key => `${key}=${authData[key]}`)
-            .join('\n');
-        
-        // Для упрощения пропускаем проверку на клиенте
-        // В production лучше делать через backend
-        return true;
-    },
-    
-    // Создание/вход пользователя через Telegram
-    loginWithTelegram: async (telegramUser) => {
-        console.log('🔵 Telegram login started:', telegramUser);
-        try {
-            const email = `tg_${telegramUser.id}@telegram.user`;
-            // Используем ПОСТОЯННЫЙ пароль на основе bot token и telegram ID
-            const password = `tg_${CONFIG.TELEGRAM.BOT_TOKEN.slice(0, 20)}_${telegramUser.id}`;
-            
-            console.log('📧 Generated credentials:', { email, passwordLength: password.length });
-            
-            let user = null;
-            
-            try {
-                // Пробуем войти с новым паролем
-                console.log('🔑 Attempting signIn...');
-                const userCredential = await window.fb.auth.signInWithEmailAndPassword(email, password);
-                user = userCredential.user;
-                console.log('✅ SignIn successful:', user.uid);
-            } catch (signInError) {
-                console.log('❌ SignIn failed:', signInError.code, signInError.message);
-                
-                if (signInError.code === 'auth/user-not-found') {
-                    console.log('🆕 Creating new user...');
-                    // Создаем нового пользователя
-                    const userCredential = await window.fb.auth.createUserWithEmailAndPassword(email, password);
-                    user = userCredential.user;
-                    console.log('✅ User created:', user.uid);
-                    
-                    // Обновляем профиль Firebase Auth
-                    await user.updateProfile({
-                        displayName: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
-                        photoURL: telegramUser.photo_url || null
-                    });
-                    console.log('✅ Profile updated');
-                    
-                    // Создаем профиль в Firestore с Firebase UID
-                    await window.fb.doc('players', user.uid).set({
-                        id: user.uid,
-                        telegramId: telegramUser.id,
-                        name: telegramUser.first_name + (telegramUser.last_name ? ' ' + telegramUser.last_name : ''),
-                        username: telegramUser.username || null,
-                        email: email,
-                        photoURL: telegramUser.photo_url || null,
-                        authProvider: 'telegram',
-                        points: 0,
-                        totalMatches: 0,
-                        wins: 0,
-                        losses: 0,
-                        tournamentsPlayed: 0,
-                        emailVerified: true,
-                        createdAt: new Date().toISOString()
-                    });
-                    console.log('✅ Firestore profile created');
-                } else if (signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-login-credentials' || signInError.code === 'auth/invalid-credential') {
-                    // Старый аккаунт с другим паролем - показываем инструкцию
-                    console.log('⚠️ Old account detected with different password');
-                    throw new Error('Старый аккаунт обнаружен. Удалите его в Firebase Console: ' + email);
-                } else {
-                    throw signInError;
-                }
-            }
-            
-            console.log('🎉 Telegram login completed successfully');
-            return true;
-        } catch (error) {
-            console.error('💥 Telegram auth error:', error);
-            throw error;
-        }
-    }
-};
-
 window.useFirebaseReady = () => {
     const [ready, setReady] = useState(!!window.fb);
     useEffect(() => {
@@ -147,13 +61,12 @@ window.useAuthState = () => {
             if (snap.exists) {
                 setProfile(snap.data());
             } else {
-                // Определяем источник авторизации
-                const isTelegramUser = u.email?.includes('@telegram.user');
-                const displayName = u.displayName || u.email?.split('@')[0] || 'Игрок';
+                // Генерируем имя из email если displayName отсутствует
+                const defaultName = u.displayName || (u.email ? u.email.split('@')[0] : 'Игрок');
                 
                 const newProfile = { 
                     id: u.uid, 
-                    name: displayName,
+                    name: defaultName,
                     email: u.email, 
                     photoURL: u.photoURL, 
                     points: 0, 
@@ -161,8 +74,6 @@ window.useAuthState = () => {
                     wins: 0,
                     losses: 0,
                     tournamentsPlayed: 0,
-                    emailVerified: u.emailVerified,
-                    authProvider: isTelegramUser ? 'telegram' : (u.providerData[0]?.providerId || 'email'),
                     createdAt: new Date().toISOString()
                 };
                 await ref.set(newProfile);
@@ -288,35 +199,199 @@ window.Tab = ({ active, children, ...props }) => (
     <button className={window.cn('px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all', active ? 'bg-white text-black' : 'text-white/40 hover:text-white')} {...props}>{children}</button>
 );
 
-// Telegram Login Button Component
-window.TelegramLoginButton = ({ botName, onAuth }) => {
-    const containerRef = React.useRef(null);
-    
-    useEffect(() => {
-        if (!containerRef.current) return;
-        
-        // Очищаем контейнер
-        containerRef.current.innerHTML = '';
-        
-        // Создаем скрипт
-        const script = document.createElement('script');
-        script.src = 'https://telegram.org/js/telegram-widget.js?22';
-        script.setAttribute('data-telegram-login', botName);
-        script.setAttribute('data-size', 'large');
-        script.setAttribute('data-radius', '12');
-        script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-        script.setAttribute('data-request-access', 'write');
-        script.async = true;
-        
-        containerRef.current.appendChild(script);
-    }, [botName]);
-    
-    return <div ref={containerRef} className="telegram-login-wrapper"></div>;
+// === МОДАЛЬНЫЕ ОКНА ===
+window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
+    const [mode, setMode] = useState(initialMode);
+    const [loading, setLoading] = useState(false);
+    const [form, setForm] = useState({
+        email: '',
+        password: '',
+        name: '',
+        telegram: ''
+    });
+
+    const handleLogin = async () => {
+        if (!form.email || !form.password) {
+            alert('Заполните все поля');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await window.fb.auth.signInWithEmailAndPassword(form.email, form.password);
+            onSuccess?.();
+            onClose();
+        } catch (error) {
+            if (error.code === 'auth/user-not-found') {
+                alert('Пользователь не найден. Зарегистрируйтесь.');
+            } else if (error.code === 'auth/wrong-password') {
+                alert('Неверный пароль');
+            } else {
+                alert('Ошибка входа: ' + error.message);
+            }
+        }
+        setLoading(false);
+    };
+
+    const handleRegister = async () => {
+        if (!form.email || !form.password || !form.name || !form.telegram) {
+            alert('Заполните все обязательные поля');
+            return;
+        }
+
+        if (form.password.length < 6) {
+            alert('Пароль должен содержать минимум 6 символов');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const userCredential = await window.fb.auth.createUserWithEmailAndPassword(form.email, form.password);
+            const user = userCredential.user;
+
+            await user.updateProfile({ displayName: form.name });
+
+            await window.fb.doc('players', user.uid).set({
+                id: user.uid,
+                name: form.name,
+                email: form.email,
+                telegram: form.telegram,
+                photoURL: null,
+                points: 0,
+                totalMatches: 0,
+                wins: 0,
+                losses: 0,
+                tournamentsPlayed: 0,
+                gamesWon: 0,
+                gamesLost: 0,
+                createdAt: new Date().toISOString(),
+                source: 'email'
+            });
+
+            await user.sendEmailVerification();
+            
+            alert('Регистрация успешна! Проверьте почту для подтверждения.');
+            onSuccess?.();
+            onClose();
+        } catch (error) {
+            if (error.code === 'auth/email-already-in-use') {
+                alert('Email уже используется');
+            } else if (error.code === 'auth/weak-password') {
+                alert('Слишком простой пароль');
+            } else {
+                alert('Ошибка регистрации: ' + error.message);
+            }
+        }
+        setLoading(false);
+    };
+
+    return (
+        <window.Modal onClose={onClose}>
+            <window.Card className="p-8 w-full max-w-3xl relative">
+                <button 
+                    onClick={onClose}
+                    className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all"
+                >
+                    ×
+                </button>
+                
+                <div className="mb-8">
+                    <h3 className="text-3xl font-bold text-black mb-2">
+                        {mode === 'login' ? 'Вход' : 'Регистрация'}
+                    </h3>
+                    <p className="text-gray-500">
+                        {mode === 'login' ? 'Войдите в свой аккаунт' : 'Создайте новый аккаунт'}
+                    </p>
+                </div>
+
+                {mode === 'register' ? (
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-4">
+                            <window.Input
+                                label="Имя и Фамилия *"
+                                value={form.name}
+                                onChange={e => setForm({...form, name: e.target.value})}
+                                placeholder="Александр Иванов"
+                                disabled={loading}
+                            />
+                            
+                            <window.Input
+                                label="Телеграм *"
+                                value={form.telegram}
+                                onChange={e => setForm({...form, telegram: e.target.value})}
+                                placeholder="@username"
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div className="space-y-4">
+                            <window.Input
+                                label="Email *"
+                                type="email"
+                                value={form.email}
+                                onChange={e => setForm({...form, email: e.target.value})}
+                                placeholder="example@email.com"
+                                disabled={loading}
+                            />
+
+                            <window.Input
+                                label="Пароль *"
+                                type="password"
+                                value={form.password}
+                                onChange={e => setForm({...form, password: e.target.value})}
+                                placeholder="Минимум 6 символов"
+                                disabled={loading}
+                            />
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <window.Input
+                            label="Email *"
+                            type="email"
+                            value={form.email}
+                            onChange={e => setForm({...form, email: e.target.value})}
+                            placeholder="example@email.com"
+                            disabled={loading}
+                        />
+
+                        <window.Input
+                            label="Пароль *"
+                            type="password"
+                            value={form.password}
+                            onChange={e => setForm({...form, password: e.target.value})}
+                            placeholder="Минимум 6 символов"
+                            disabled={loading}
+                        />
+                    </div>
+                )}
+
+                <button
+                    onClick={mode === 'login' ? handleLogin : handleRegister}
+                    className="w-full mt-6 bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all disabled:opacity-50"
+                    disabled={loading}
+                >
+                    {loading ? 'Загрузка...' : (mode === 'login' ? 'Войти' : 'Создать аккаунт')}
+                </button>
+
+                <div className="text-center mt-6">
+                    <button
+                        onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                        className="text-gray-500 hover:text-black text-sm transition-all"
+                        disabled={loading}
+                    >
+                        {mode === 'login' ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
+                    </button>
+                </div>
+            </window.Card>
+        </window.Modal>
+    );
 };
 
 window.AuthModal = ({ onClose }) => {
     const { login } = window.useAuth();
     const [showEmailAuth, setShowEmailAuth] = useState(false);
+    const [emailAuthMode, setEmailAuthMode] = useState('login');
     
     const handleGoogleLogin = async () => { 
         await login(); 
@@ -324,7 +399,11 @@ window.AuthModal = ({ onClose }) => {
     };
 
     if (showEmailAuth) {
-        return <window.EmailAuthModal onClose={onClose} onSuccess={() => setShowEmailAuth(false)} />;
+        return <window.EmailAuthModal 
+            onClose={onClose} 
+            onSuccess={() => setShowEmailAuth(false)} 
+            initialMode={emailAuthMode}
+        />;
     }
     
     return (
@@ -357,7 +436,10 @@ window.AuthModal = ({ onClose }) => {
                     </button>
 
                     <button
-                        onClick={() => setShowEmailAuth(true)}
+                        onClick={() => {
+                            setEmailAuthMode('login');
+                            setShowEmailAuth(true);
+                        }}
                         className="w-full bg-gray-100 text-black px-6 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-3"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,7 +451,10 @@ window.AuthModal = ({ onClose }) => {
                 
                 <div className="text-center mt-6">
                     <button
-                        onClick={() => setShowEmailAuth(true)}
+                        onClick={() => {
+                            setEmailAuthMode('register');
+                            setShowEmailAuth(true);
+                        }}
                         className="text-gray-500 hover:text-black text-sm transition-all"
                     >
                         Создать аккаунт
@@ -413,21 +498,19 @@ window.Layout = ({ children, activePage }) => {
         <div className="min-h-screen bg-black text-white">
             <header className="border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <a href="./index.html" className="text-2xl font-bold no-underline text-white hover:opacity-80 transition-opacity">
+                    <a href="/NEW/index.html" className="text-2xl font-bold no-underline text-white hover:opacity-80 transition-opacity">
                         Grechka <span className="text-white/40">•</span> Padel
                     </a>
                     <nav className="flex gap-8">
-                        <a href="./index.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'tournaments' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Турниры</a>
-                        <a href="./players.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'players' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Рейтинг</a>
+                        <a href="/NEW/index.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'tournaments' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Турниры</a>
+                        <a href="/NEW/players.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'players' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Рейтинг</a>
                     </nav>
                     <div>
                         {auth.user ? (
-                            <div className="flex gap-3 items-center">
-                                <a href="./profile.html" className="no-underline">
-                                    <window.Avatar src={auth.user.photoURL} name={auth.user.displayName || auth.profile?.name} />
-                                </a>
-                                <button onClick={auth.logout} className="text-white/40 hover:text-white text-sm">Выйти</button>
-                            </div>
+                            <a href="/NEW/profile.html" className="flex gap-3 items-center no-underline cursor-pointer group">
+                                <window.Avatar src={auth.user.photoURL} name={auth.user.displayName} />
+                                <span className="text-white/40 group-hover:text-white text-sm transition-all">Профиль</span>
+                            </a>
                         ) : (
                             <window.Button onClick={() => setShowAuth(true)}>Войти</window.Button>
                         )}
