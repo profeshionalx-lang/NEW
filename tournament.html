@@ -80,6 +80,15 @@
                 const [showSuggestions, setShowSuggestions] = useState(false);
                 const allPlayers = window.useCollection('players');
                 
+                // Сбрасываем editing когда player обновляется извне
+                React.useEffect(() => {
+                    if (player && !editing) {
+                        setName('');
+                        setSuggestions([]);
+                        setShowSuggestions(false);
+                    }
+                }, [player?.id]);
+                
                 const isDragging = isAmericana 
                     ? (dragPlayer?.courtIdx === courtIdx && dragPlayer?.pairIdx === pairIdx && dragPlayer?.slot === slot)
                     : (dragPlayer?.pairIdx === courtIdx && dragPlayer?.slot === slot);
@@ -109,6 +118,7 @@
                         setCourtSetup(newPairs);
                     }
                     setName('');
+                    setSuggestions([]);
                     setShowSuggestions(false);
                     setEditing(false);
                 };
