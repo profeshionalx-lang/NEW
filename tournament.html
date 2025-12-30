@@ -60,52 +60,25 @@
                 }
             };
 
-            const updatePlayerName = (courtIdx, pairIdx, slot, name) => {
-                if (isAmericana) {
-                    const newSetup = [...courtSetup];
-                    const current = newSetup[courtIdx].pairs[pairIdx][slot];
-                    newSetup[courtIdx].pairs[pairIdx][slot] = current ? { ...current, name } : { id: `manual_${Date.now()}`, name, photoURL: null };
-                    setCourtSetup(newSetup);
-                } else {
-                    const newPairs = [...courtSetup];
-                    newPairs[courtIdx][slot] = newPairs[courtIdx][slot] ? { ...newPairs[courtIdx][slot], name } : { id: `manual_${Date.now()}`, name, photoURL: null };
-                    setCourtSetup(newPairs);
-                }
-            };
-
             const PlayerSlot = ({ player, courtIdx, pairIdx, slot }) => {
-                const [editing, setEditing] = useState(false);
-                const [name, setName] = useState(player?.name || '');
-                const [suggestions, setSuggestions] = useState([]);
+                const [searchText, setSearchText] = useState('');
                 const [showSuggestions, setShowSuggestions] = useState(false);
                 const allPlayers = window.useCollection('players');
-                
-                // Сбрасываем editing когда player обновляется извне
-                React.useEffect(() => {
-                    if (player && !editing) {
-                        setName('');
-                        setSuggestions([]);
-                        setShowSuggestions(false);
-                    }
-                }, [player?.id]);
                 
                 const isDragging = isAmericana 
                     ? (dragPlayer?.courtIdx === courtIdx && dragPlayer?.pairIdx === pairIdx && dragPlayer?.slot === slot)
                     : (dragPlayer?.pairIdx === courtIdx && dragPlayer?.slot === slot);
 
-                const handleNameChange = (value) => {
-                    setName(value);
-                    if (value.trim().length > 0) {
-                        const filtered = allPlayers.filter(p => 
-                            p.name.toLowerCase().includes(value.toLowerCase())
-                        ).slice(0, 5);
-                        setSuggestions(filtered);
-                        setShowSuggestions(true);
-                    } else {
-                        setSuggestions([]);
-                        setShowSuggestions(false);
-                    }
+                const handleSearchChange = (value) => {
+                    setSearchText(value);
+                    setShowSuggestions(value.trim().length > 0);
                 };
+
+                const filteredPlayers = searchText.trim().length > 0
+                    ? allPlayers.filter(p => 
+                        p.name.toLowerCase().includes(searchText.toLowerCase())
+                    ).slice(0, 5)
+                    : [];
 
                 const selectPlayer = (selectedPlayer) => {
                     if (isAmericana) {
@@ -117,21 +90,20 @@
                         newPairs[courtIdx][slot] = selectedPlayer;
                         setCourtSetup(newPairs);
                     }
-                    setName('');
-                    setSuggestions([]);
+                    setSearchText('');
                     setShowSuggestions(false);
-                    setEditing(false);
                 };
 
-                const handleBlur = () => {
-                    setTimeout(() => {
-                        if (name.trim()) {
-                            updatePlayerName(courtIdx, pairIdx, slot, name.trim());
-                        }
-                        setName('');
-                        setShowSuggestions(false);
-                        setEditing(false);
-                    }, 200);
+                const removePlayer = () => {
+                    if (isAmericana) {
+                        const ns = [...courtSetup];
+                        ns[courtIdx].pairs[pairIdx][slot] = null;
+                        setCourtSetup(ns);
+                    } else {
+                        const np = [...courtSetup];
+                        np[courtIdx][slot] = null;
+                        setCourtSetup(np);
+                    }
                 };
 
                 return (
@@ -150,41 +122,29 @@
                             {player ? (
                                 <>
                                     <window.Avatar src={player.photoURL} name={player.name} size="sm" />
-                                    {editing ? (
-                                        <input autoFocus className="flex-1 bg-transparent border-b border-black outline-none text-black font-medium" value={name} 
-                                            onChange={e => handleNameChange(e.target.value)} 
-                                            onBlur={handleBlur}
-                                            onKeyDown={e => e.key === 'Enter' && e.target.blur()} />
-                                    ) : (
-                                        <span className="flex-1 font-medium text-black" onDoubleClick={() => setEditing(true)}>{player.name}</span>
-                                    )}
-                                    <button onClick={() => setEditing(true)} className="text-gray-400 hover:text-blue-500 text-sm">✏️</button>
-                                    <button onClick={() => { 
-                                        if (isAmericana) {
-                                            const ns = [...courtSetup]; 
-                                            ns[courtIdx].pairs[pairIdx][slot] = null; 
-                                            setCourtSetup(ns);
-                                        } else {
-                                            const np = [...courtSetup]; 
-                                            np[courtIdx][slot] = null; 
-                                            setCourtSetup(np);
-                                        }
-                                    }} className="text-gray-400 hover:text-red-500 text-sm">✕</button>
+                                    <span className="flex-1 font-medium text-black">{player.name}</span>
+                                    <button onClick={removePlayer} className="text-gray-400 hover:text-red-500 text-sm">✕</button>
                                 </>
                             ) : (
-                                <input className="w-full bg-transparent text-center outline-none text-gray-400 placeholder-gray-300" placeholder="+ Добавить" 
-                                    value={name} 
-                                    onChange={e => handleNameChange(e.target.value)} 
-                                    onBlur={handleBlur}
-                                    onKeyDown={e => e.key === 'Enter' && e.target.blur()} />
+                                <input 
+                                    className="w-full bg-transparent text-center outline-none text-gray-400 placeholder-gray-300" 
+                                    placeholder="Поиск игрока..." 
+                                    value={searchText} 
+                                    onChange={e => handleSearchChange(e.target.value)} 
+                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                    onFocus={() => searchText && setShowSuggestions(true)}
+                                />
                             )}
                         </div>
-                        {showSuggestions && suggestions.length > 0 && (
+                        {showSuggestions && filteredPlayers.length > 0 && (
                             <div className="absolute z-10 w-full mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
-                                {suggestions.map(p => (
+                                {filteredPlayers.map(p => (
                                     <div 
                                         key={p.id}
-                                        onClick={() => selectPlayer(p)}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            selectPlayer(p);
+                                        }}
                                         className="flex items-center gap-3 p-3 hover:bg-gray-100 cursor-pointer transition-all"
                                     >
                                         <window.Avatar src={p.photoURL} name={p.name} size="sm" />
@@ -202,24 +162,17 @@
 
             const handleConfirm = () => {
                 if (isAmericana) {
-                    // Генерируем имена для пустых слотов
-                    let playerCounter = 1;
-                    const processedSetup = courtSetup.map(court => ({
-                        courtNumber: court.courtNumber,
-                        pairs: court.pairs.map(pair => ({
-                            player1: pair.player1 || { 
-                                id: `auto_${Date.now()}_${playerCounter}`, 
-                                name: `Игрок #${playerCounter++}`, 
-                                photoURL: null 
-                            },
-                            player2: pair.player2 || { 
-                                id: `auto_${Date.now()}_${playerCounter}`, 
-                                name: `Игрок #${playerCounter++}`, 
-                                photoURL: null 
-                            }
-                        }))
-                    }));
-                    onConfirm(processedSetup);
+                    // Проверяем что все слоты заполнены
+                    const allFilled = courtSetup.every(court => 
+                        court.pairs.every(pair => pair.player1 && pair.player2)
+                    );
+                    
+                    if (!allFilled) {
+                        alert('Заполните всех игроков перед началом турнира');
+                        return;
+                    }
+                    
+                    onConfirm(courtSetup);
                 } else {
                     onConfirm(courtSetup.filter(p => p.player1 || p.player2).map((p, i) => ({ 
                         id: i + 1, number: i + 1, player1: p.player1?.name || 'TBD', player2: p.player2?.name || 'TBD', 
