@@ -23,9 +23,8 @@
 
         function ProfileView() {
             const { user, profile, isAdmin, logout } = window.useAuth();
-
             const ready = window.useFirebaseReady();
-            
+
             if (!ready || (user && !profile)) {
                 return <window.ProfileSkeleton />;
             }
