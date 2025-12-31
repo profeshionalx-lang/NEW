@@ -308,6 +308,194 @@ window.updatePartnerships = (partnerships, pair) => {
     return partnerships;
 };
 
+// === SKELETON COMPONENTS ===
+window.SkeletonBox = ({ className = '' }) => (
+    <div className={window.cn('animate-pulse bg-white/10 rounded-2xl', className)} />
+);
+
+window.TournamentCardSkeleton = () => (
+    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all">
+        <div className="flex justify-between items-start mb-4">
+            <window.SkeletonBox className="h-5 w-24 rounded-full" />
+        </div>
+        <window.SkeletonBox className="h-7 w-3/4 rounded-lg mb-6" />
+        <div className="space-y-3 mb-6">
+            <div className="flex items-center gap-2">
+                <window.SkeletonBox className="w-4 h-4 rounded" />
+                <window.SkeletonBox className="h-4 w-24 rounded" />
+            </div>
+            <div className="flex items-center gap-2">
+                <window.SkeletonBox className="w-4 h-4 rounded" />
+                <window.SkeletonBox className="h-4 w-32 rounded" />
+            </div>
+            <div className="flex items-center gap-2">
+                <window.SkeletonBox className="w-4 h-4 rounded" />
+                <window.SkeletonBox className="h-4 w-20 rounded" />
+            </div>
+        </div>
+        <div className="flex justify-between items-center pt-4 border-t border-white/10">
+            <div className="flex items-baseline gap-1">
+                <window.SkeletonBox className="h-8 w-12 rounded" />
+                <window.SkeletonBox className="h-5 w-8 rounded" />
+            </div>
+            <window.SkeletonBox className="h-6 w-6 rounded-full" />
+        </div>
+    </div>
+);
+
+window.TournamentsListSkeleton = () => (
+    <div className="space-y-12">
+        <div className="flex justify-end">
+            <window.SkeletonBox className="h-12 w-48 rounded-full" />
+        </div>
+        
+        <section>
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 rounded-full bg-white"></div>
+                <window.SkeletonBox className="h-4 w-32 rounded" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <window.TournamentCardSkeleton />
+                <window.TournamentCardSkeleton />
+                <window.TournamentCardSkeleton />
+            </div>
+        </section>
+
+        <section>
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                <window.SkeletonBox className="h-4 w-40 rounded" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <window.TournamentCardSkeleton />
+                <window.TournamentCardSkeleton />
+            </div>
+        </section>
+    </div>
+);
+
+window.PlayerRowSkeleton = ({ place }) => {
+    const getMedalColor = () => {
+        if (place === 1) return 'bg-gradient-to-br from-yellow-500 to-yellow-600';
+        if (place === 2) return 'bg-gradient-to-br from-gray-400 to-gray-500';
+        if (place === 3) return 'bg-gradient-to-br from-orange-400 to-orange-500';
+        return 'bg-white/10';
+    };
+
+    return (
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-5 flex items-center gap-6 hover:bg-white/10 transition-all">
+            <div className={window.cn('w-12 h-12 rounded-full flex items-center justify-center', getMedalColor())}>
+                <div className="text-xl font-black text-white">{place}</div>
+            </div>
+            <window.SkeletonBox className="w-14 h-14 rounded-full" />
+            <div className="flex-1 space-y-2">
+                <window.SkeletonBox className="h-6 w-40 rounded-lg" />
+                <window.SkeletonBox className="h-4 w-24 rounded" />
+            </div>
+            <div className="text-right space-y-2">
+                <window.SkeletonBox className="h-9 w-16 rounded-lg ml-auto" />
+                <window.SkeletonBox className="h-3 w-12 rounded ml-auto" />
+            </div>
+        </div>
+    );
+};
+
+window.PlayersListSkeleton = () => (
+    <div>
+        <div className="flex justify-between items-center mb-8">
+            <window.SkeletonBox className="h-9 w-48 rounded-lg" />
+            <window.SkeletonBox className="h-12 w-48 rounded-full" />
+        </div>
+        <div className="space-y-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                <window.PlayerRowSkeleton key={i} place={i} />
+            ))}
+        </div>
+    </div>
+);
+
+window.ProfileSkeleton = () => (
+    <div>
+        <div className="flex justify-between items-center mb-8">
+            <window.SkeletonBox className="h-12 w-32 rounded-full" />
+            <window.SkeletonBox className="h-12 w-32 rounded-full" />
+        </div>
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-12">
+            <div className="flex items-center gap-8 mb-12">
+                <window.SkeletonBox className="w-24 h-24 rounded-full" />
+                <div className="flex-1 space-y-3">
+                    <window.SkeletonBox className="h-10 w-64 rounded-lg" />
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <window.SkeletonBox className="w-4 h-4 rounded" />
+                            <window.SkeletonBox className="h-4 w-32 rounded" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <window.SkeletonBox className="w-4 h-4 rounded" />
+                            <window.SkeletonBox className="h-4 w-48 rounded" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+                {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="text-center p-6 bg-white/5 rounded-2xl border border-white/10">
+                        <window.SkeletonBox className="h-10 w-16 mx-auto rounded-lg mb-2" />
+                        <window.SkeletonBox className="h-3 w-20 mx-auto rounded" />
+                    </div>
+                ))}
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+                <div className="text-center p-6 bg-white/5 rounded-2xl border border-white/10">
+                    <window.SkeletonBox className="h-9 w-20 mx-auto rounded-lg mb-2" />
+                    <window.SkeletonBox className="h-3 w-32 mx-auto rounded" />
+                </div>
+                <div className="text-center p-6 bg-white/5 rounded-2xl border border-white/10">
+                    <window.SkeletonBox className="h-9 w-20 mx-auto rounded-lg mb-2" />
+                    <window.SkeletonBox className="h-3 w-32 mx-auto rounded" />
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
+window.TournamentInfoSkeleton = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="space-y-6">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-8">
+                <window.SkeletonBox className="h-4 w-24 rounded mb-6" />
+                <div className="space-y-5">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="flex items-center gap-4">
+                            <window.SkeletonBox className="w-8 h-8 rounded-full" />
+                            <div className="flex-1 space-y-2">
+                                <window.SkeletonBox className="h-3 w-16 rounded" />
+                                <window.SkeletonBox className="h-5 w-48 rounded" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <window.SkeletonBox className="h-14 w-full rounded-2xl" />
+        </div>
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-8">
+            <div className="flex justify-between items-center mb-6">
+                <window.SkeletonBox className="h-4 w-32 rounded" />
+                <window.SkeletonBox className="h-6 w-16 rounded" />
+            </div>
+            <div className="space-y-3">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5">
+                        <window.SkeletonBox className="w-8 h-8 rounded-full" />
+                        <window.SkeletonBox className="w-10 h-10 rounded-full" />
+                        <window.SkeletonBox className="flex-1 h-5 rounded" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
 // === UI КОМПОНЕНТЫ ===
 window.Card = ({ children, className, dark, ...props }) => (
     <div className={window.cn(dark ? 'bg-white/5 border border-white/10' : 'bg-white', 'rounded-3xl', className)} {...props}>
