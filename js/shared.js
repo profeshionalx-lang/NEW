@@ -145,6 +145,169 @@ window.recalcGroup = (group) => {
     group.pairs.sort((a, b) => b.points - a.points || b.gamesDiff - a.gamesDiff || b.gamesWon - a.gamesWon);
 };
 
+// === AMERICANA ЛОГИКА ===
+
+// Инициализация первого раунда Americana
+window.initAmericanaRound1 = (courtSetup) => {
+    // courtSetup = [{courtNumber: 5, pairs: [{player1, player2}, {player1, player2}]}, ...]
+    return {
+        roundNumber: 1,
+        courts: courtSetup.map(court => ({
+            courtNumber: court.courtNumber,
+            pair1: {
+                player1: court.pairs[0].player1,
+                player2: court.pairs[0].player2
+            },
+            pair2: {
+                player1: court.pairs[1].player1,
+                player2: court.pairs[1].player2
+            },
+            score: { set1p1: '', set1p2: '' },
+            completed: false
+        }))
+    };
+};
+
+// Формирование новых пар из 4 игроков с учетом истории партнерств
+window.formNewPairs = (players, partnerships, isFixed) => {
+    // players = [player1, player2, player3, player4]
+    // partnerships = { playerId: [list of partner ids] }
+    // isFixed = true/false
+    
+    if (isFixed) {
+        // Для фиксированных пар просто возвращаем существующие пары
+        return [
+            { player1: players[0], player2: players[1] },
+            { player1: players[2], player2: players[3] }
+        ];
+    }
+    
+    // Для смены партнеров - находим комбинацию, где игроки еще не играли вместе
+    const [p1, p2, p3, p4] = players;
+    
+    // Все возможные комбинации пар из 4 игроков
+    const combinations = [
+        [[p1, p2], [p3, p4]], // 1-2 vs 3-4
+        [[p1, p3], [p2, p4]], // 1-3 vs 2-4
+        [[p1, p4], [p2, p3]]  // 1-4 vs 2-3
+    ];
+    
+    // Функция проверки, играли ли два игрока вместе
+    const havePlayed = (player1, player2) => {
+        const p1Partners = partnerships[player1.id] || [];
+        return p1Partners.includes(player2.id);
+    };
+    
+    // Ищем комбинацию, где оба игрока в паре еще не играли вместе
+    for (const combo of combinations) {
+        const [pair1, pair2] = combo;
+        if (!havePlayed(pair1[0], pair1[1]) && !havePlayed(pair2[0], pair2[1])) {
+            return [
+                { player1: pair1[0], player2: pair1[1] },
+                { player1: pair2[0], player2: pair2[1] }
+            ];
+        }
+    }
+    
+    // Если все уже играли, берем комбинацию с минимальным количеством повторов
+    // Для простоты берем первую комбинацию
+    const [pair1, pair2] = combinations[0];
+    return [
+        { player1: pair1[0], player2: pair1[1] },
+        { player1: pair2[0], player2: pair2[1] }
+    ];
+};
+
+// Генерация следующего раунда Americana
+window.generateNextAmericanaRound = (currentRound, partnerships, isFixed) => {
+    const courts = currentRound.courts;
+    const newCourts = [];
+    
+    for (let i = 0; i < courts.length; i++) {
+        const court = courts[i];
+        const courtNumber = court.courtNumber;
+        
+        // Определяем победителей и проигравших
+        const score1 = parseInt(court.score.set1p1) || 0;
+        const score2 = parseInt(court.score.set1p2) || 0;
+        const winners = score1 > score2 ? court.pair1 : court.pair2;
+        const losers = score1 > score2 ? court.pair2 : court.pair1;
+        
+        let playersForCourt = [];
+        
+        if (courtNumber === courts.length) {
+            // Самый верхний корт: победители остаются + победители с корта ниже поднимаются
+            const winnersHere = [winners.player1, winners.player2];
+            if (i < courts.length - 1) {
+                const courtBelow = courts[i + 1];
+                const score1Below = parseInt(courtBelow.score.set1p1) || 0;
+                const score2Below = parseInt(courtBelow.score.set1p2) || 0;
+                const winnersBelow = score1Below > score2Below ? courtBelow.pair1 : courtBelow.pair2;
+                playersForCourt = [...winnersHere, winnersBelow.player1, winnersBelow.player2];
+            } else {
+                playersForCourt = winnersHere;
+            }
+        } else if (courtNumber === 1) {
+            // Самый нижний корт: проигравшие остаются + проигравшие с корта выше спускаются
+            const losersHere = [losers.player1, losers.player2];
+            if (i > 0) {
+                const courtAbove = courts[i - 1];
+                const score1Above = parseInt(courtAbove.score.set1p1) || 0;
+                const score2Above = parseInt(courtAbove.score.set1p2) || 0;
+                const losersAbove = score1Above > score2Above ? courtAbove.pair2 : courtAbove.pair1;
+                playersForCourt = [losersAbove.player1, losersAbove.player2, ...losersHere];
+            } else {
+                playersForCourt = losersHere;
+            }
+        } else {
+            // Средние корты: проигравшие сверху + победители снизу
+            const courtAbove = courts[i - 1];
+            const courtBelow = courts[i + 1];
+            
+            const score1Above = parseInt(courtAbove.score.set1p1) || 0;
+            const score2Above = parseInt(courtAbove.score.set1p2) || 0;
+            const losersAbove = score1Above > score2Above ? courtAbove.pair2 : courtAbove.pair1;
+            
+            const score1Below = parseInt(courtBelow.score.set1p1) || 0;
+            const score2Below = parseInt(courtBelow.score.set1p2) || 0;
+            const winnersBelow = score1Below > score2Below ? courtBelow.pair1 : courtBelow.pair2;
+            
+            playersForCourt = [losersAbove.player1, losersAbove.player2, winnersBelow.player1, winnersBelow.player2];
+        }
+        
+        // Формируем новые пары
+        if (playersForCourt.length === 4) {
+            const pairs = window.formNewPairs(playersForCourt, partnerships, isFixed);
+            newCourts.push({
+                courtNumber,
+                pair1: pairs[0],
+                pair2: pairs[1],
+                score: { set1p1: '', set1p2: '' },
+                completed: false
+            });
+        }
+    }
+    
+    return {
+        roundNumber: currentRound.roundNumber + 1,
+        courts: newCourts
+    };
+};
+
+// Обновление истории партнерств
+window.updatePartnerships = (partnerships, pair) => {
+    const p1 = pair.player1.id;
+    const p2 = pair.player2.id;
+    
+    if (!partnerships[p1]) partnerships[p1] = [];
+    if (!partnerships[p2]) partnerships[p2] = [];
+    
+    if (!partnerships[p1].includes(p2)) partnerships[p1].push(p2);
+    if (!partnerships[p2].includes(p1)) partnerships[p2].push(p1);
+    
+    return partnerships;
+};
+
 // === UI КОМПОНЕНТЫ ===
 window.Card = ({ children, className, dark, ...props }) => (
     <div className={window.cn(dark ? 'bg-white/5 border border-white/10' : 'bg-white', 'rounded-3xl', className)} {...props}>
