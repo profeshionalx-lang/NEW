@@ -162,17 +162,24 @@
 
             const handleConfirm = () => {
                 if (isAmericana) {
-                    // Проверяем что все слоты заполнены
-                    const allFilled = courtSetup.every(court => 
-                        court.pairs.every(pair => pair.player1 && pair.player2)
-                    );
-                    
-                    if (!allFilled) {
-                        alert('Заполните всех игроков перед началом турнира');
-                        return;
-                    }
-                    
-                    onConfirm(courtSetup);
+                    // Автоматически генерируем имена для пустых слотов
+                    let playerCounter = 1;
+                    const processedSetup = courtSetup.map(court => ({
+                        courtNumber: court.courtNumber,
+                        pairs: court.pairs.map(pair => ({
+                            player1: pair.player1 || { 
+                                id: `auto_${Date.now()}_${playerCounter}`, 
+                                name: `Игрок #${playerCounter++}`, 
+                                photoURL: null 
+                            },
+                            player2: pair.player2 || { 
+                                id: `auto_${Date.now()}_${playerCounter}`, 
+                                name: `Игрок #${playerCounter++}`, 
+                                photoURL: null 
+                            }
+                        }))
+                    }));
+                    onConfirm(processedSetup);
                 } else {
                     onConfirm(courtSetup.filter(p => p.player1 || p.player2).map((p, i) => ({ 
                         id: i + 1, number: i + 1, player1: p.player1?.name || 'TBD', player2: p.player2?.name || 'TBD', 
