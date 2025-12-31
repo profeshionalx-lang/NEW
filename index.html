@@ -141,10 +141,11 @@
             const [creating, setCreating] = useState(false);
             const tournaments = window.useCollection('tournaments').filter(t => !t.deleted).sort((a, b) => new Date(a.date || a.createdAt) - new Date(b.date || b.createdAt));
             const ready = window.useFirebaseReady();
-            
+
             if (!ready) {
                 return <window.TournamentsListSkeleton />;
             }
+            
             const groups = {
                 upcoming: tournaments.filter(t => t.status === 'upcoming'),
                 active: tournaments.filter(t => t.status === 'stage1' || t.status === 'stage2' || t.status === 'americana'),
