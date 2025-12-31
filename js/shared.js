@@ -61,7 +61,6 @@ window.useAuthState = () => {
             if (snap.exists) {
                 setProfile(snap.data());
             } else {
-                // Генерируем имя из email если displayName отсутствует
                 const defaultName = u.displayName || (u.email ? u.email.split('@')[0] : 'Игрок');
                 
                 const newProfile = { 
@@ -146,79 +145,37 @@ window.recalcGroup = (group) => {
 };
 
 // === AMERICANA ЛОГИКА ===
-
-// Инициализация первого раунда Americana
 window.initAmericanaRound1 = (courtSetup) => {
-    // courtSetup = [{courtNumber: 5, pairs: [{player1, player2}, {player1, player2}]}, ...]
     return {
         roundNumber: 1,
         courts: courtSetup.map(court => ({
             courtNumber: court.courtNumber,
-            pair1: {
-                player1: court.pairs[0].player1,
-                player2: court.pairs[0].player2
-            },
-            pair2: {
-                player1: court.pairs[1].player1,
-                player2: court.pairs[1].player2
-            },
+            pair1: { player1: court.pairs[0].player1, player2: court.pairs[0].player2 },
+            pair2: { player1: court.pairs[1].player1, player2: court.pairs[1].player2 },
             score: { set1p1: '', set1p2: '' },
             completed: false
         }))
     };
 };
 
-// Формирование новых пар из 4 игроков с учетом истории партнерств
 window.formNewPairs = (players, partnerships, isFixed) => {
-    // players = [player1, player2, player3, player4]
-    // partnerships = { playerId: [list of partner ids] }
-    // isFixed = true/false
+    if (isFixed) return [{ player1: players[0], player2: players[1] }, { player1: players[2], player2: players[3] }];
     
-    if (isFixed) {
-        // Для фиксированных пар просто возвращаем существующие пары
-        return [
-            { player1: players[0], player2: players[1] },
-            { player1: players[2], player2: players[3] }
-        ];
-    }
-    
-    // Для смены партнеров - находим комбинацию, где игроки еще не играли вместе
     const [p1, p2, p3, p4] = players;
+    const combinations = [[[p1, p2], [p3, p4]], [[p1, p3], [p2, p4]], [[p1, p4], [p2, p3]]];
+    const havePlayed = (player1, player2) => (partnerships[player1.id] || []).includes(player2.id);
     
-    // Все возможные комбинации пар из 4 игроков
-    const combinations = [
-        [[p1, p2], [p3, p4]], // 1-2 vs 3-4
-        [[p1, p3], [p2, p4]], // 1-3 vs 2-4
-        [[p1, p4], [p2, p3]]  // 1-4 vs 2-3
-    ];
-    
-    // Функция проверки, играли ли два игрока вместе
-    const havePlayed = (player1, player2) => {
-        const p1Partners = partnerships[player1.id] || [];
-        return p1Partners.includes(player2.id);
-    };
-    
-    // Ищем комбинацию, где оба игрока в паре еще не играли вместе
     for (const combo of combinations) {
         const [pair1, pair2] = combo;
         if (!havePlayed(pair1[0], pair1[1]) && !havePlayed(pair2[0], pair2[1])) {
-            return [
-                { player1: pair1[0], player2: pair1[1] },
-                { player1: pair2[0], player2: pair2[1] }
-            ];
+            return [{ player1: pair1[0], player2: pair1[1] }, { player1: pair2[0], player2: pair2[1] }];
         }
     }
     
-    // Если все уже играли, берем комбинацию с минимальным количеством повторов
-    // Для простоты берем первую комбинацию
     const [pair1, pair2] = combinations[0];
-    return [
-        { player1: pair1[0], player2: pair1[1] },
-        { player1: pair2[0], player2: pair2[1] }
-    ];
+    return [{ player1: pair1[0], player2: pair1[1] }, { player1: pair2[0], player2: pair2[1] }];
 };
 
-// Генерация следующего раунда Americana
 window.generateNextAmericanaRound = (currentRound, partnerships, isFixed) => {
     const courts = currentRound.courts;
     const newCourts = [];
@@ -226,17 +183,13 @@ window.generateNextAmericanaRound = (currentRound, partnerships, isFixed) => {
     for (let i = 0; i < courts.length; i++) {
         const court = courts[i];
         const courtNumber = court.courtNumber;
-        
-        // Определяем победителей и проигравших
         const score1 = parseInt(court.score.set1p1) || 0;
         const score2 = parseInt(court.score.set1p2) || 0;
         const winners = score1 > score2 ? court.pair1 : court.pair2;
         const losers = score1 > score2 ? court.pair2 : court.pair1;
-        
         let playersForCourt = [];
         
         if (courtNumber === courts.length) {
-            // Самый верхний корт: победители остаются + победители с корта ниже поднимаются
             const winnersHere = [winners.player1, winners.player2];
             if (i < courts.length - 1) {
                 const courtBelow = courts[i + 1];
@@ -244,11 +197,8 @@ window.generateNextAmericanaRound = (currentRound, partnerships, isFixed) => {
                 const score2Below = parseInt(courtBelow.score.set1p2) || 0;
                 const winnersBelow = score1Below > score2Below ? courtBelow.pair1 : courtBelow.pair2;
                 playersForCourt = [...winnersHere, winnersBelow.player1, winnersBelow.player2];
-            } else {
-                playersForCourt = winnersHere;
-            }
+            } else playersForCourt = winnersHere;
         } else if (courtNumber === 1) {
-            // Самый нижний корт: проигравшие остаются + проигравшие с корта выше спускаются
             const losersHere = [losers.player1, losers.player2];
             if (i > 0) {
                 const courtAbove = courts[i - 1];
@@ -256,55 +206,35 @@ window.generateNextAmericanaRound = (currentRound, partnerships, isFixed) => {
                 const score2Above = parseInt(courtAbove.score.set1p2) || 0;
                 const losersAbove = score1Above > score2Above ? courtAbove.pair2 : courtAbove.pair1;
                 playersForCourt = [losersAbove.player1, losersAbove.player2, ...losersHere];
-            } else {
-                playersForCourt = losersHere;
-            }
+            } else playersForCourt = losersHere;
         } else {
-            // Средние корты: проигравшие сверху + победители снизу
             const courtAbove = courts[i - 1];
             const courtBelow = courts[i + 1];
-            
             const score1Above = parseInt(courtAbove.score.set1p1) || 0;
             const score2Above = parseInt(courtAbove.score.set1p2) || 0;
             const losersAbove = score1Above > score2Above ? courtAbove.pair2 : courtAbove.pair1;
-            
             const score1Below = parseInt(courtBelow.score.set1p1) || 0;
             const score2Below = parseInt(courtBelow.score.set1p2) || 0;
             const winnersBelow = score1Below > score2Below ? courtBelow.pair1 : courtBelow.pair2;
-            
             playersForCourt = [losersAbove.player1, losersAbove.player2, winnersBelow.player1, winnersBelow.player2];
         }
         
-        // Формируем новые пары
         if (playersForCourt.length === 4) {
             const pairs = window.formNewPairs(playersForCourt, partnerships, isFixed);
-            newCourts.push({
-                courtNumber,
-                pair1: pairs[0],
-                pair2: pairs[1],
-                score: { set1p1: '', set1p2: '' },
-                completed: false
-            });
+            newCourts.push({ courtNumber, pair1: pairs[0], pair2: pairs[1], score: { set1p1: '', set1p2: '' }, completed: false });
         }
     }
     
-    return {
-        roundNumber: currentRound.roundNumber + 1,
-        courts: newCourts
-    };
+    return { roundNumber: currentRound.roundNumber + 1, courts: newCourts };
 };
 
-// Обновление истории партнерств
 window.updatePartnerships = (partnerships, pair) => {
     const p1 = pair.player1.id;
     const p2 = pair.player2.id;
-    
     if (!partnerships[p1]) partnerships[p1] = [];
     if (!partnerships[p2]) partnerships[p2] = [];
-    
     if (!partnerships[p1].includes(p2)) partnerships[p1].push(p2);
     if (!partnerships[p2].includes(p1)) partnerships[p2].push(p1);
-    
     return partnerships;
 };
 
@@ -348,7 +278,6 @@ window.TournamentsListSkeleton = () => (
         <div className="flex justify-end">
             <window.SkeletonBox className="h-12 w-48 rounded-full" />
         </div>
-        
         <section>
             <div className="flex items-center gap-3 mb-6">
                 <div className="w-2 h-2 rounded-full bg-white"></div>
@@ -360,7 +289,6 @@ window.TournamentsListSkeleton = () => (
                 <window.TournamentCardSkeleton />
             </div>
         </section>
-
         <section>
             <div className="flex items-center gap-3 mb-6">
                 <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
@@ -381,7 +309,6 @@ window.PlayerRowSkeleton = ({ place }) => {
         if (place === 3) return 'bg-gradient-to-br from-orange-400 to-orange-500';
         return 'bg-white/10';
     };
-
     return (
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-5 flex items-center gap-6 hover:bg-white/10 transition-all">
             <div className={window.cn('w-12 h-12 rounded-full flex items-center justify-center', getMedalColor())}>
@@ -498,9 +425,7 @@ window.TournamentInfoSkeleton = () => (
 
 // === UI КОМПОНЕНТЫ ===
 window.Card = ({ children, className, dark, ...props }) => (
-    <div className={window.cn(dark ? 'bg-white/5 border border-white/10' : 'bg-white', 'rounded-3xl', className)} {...props}>
-        {children}
-    </div>
+    <div className={window.cn(dark ? 'bg-white/5 border border-white/10' : 'bg-white', 'rounded-3xl', className)} {...props}>{children}</div>
 );
 
 window.Button = ({ children, variant = 'primary', className, ...props }) => {
@@ -554,84 +479,42 @@ window.Tab = ({ active, children, ...props }) => (
 window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
     const [mode, setMode] = useState(initialMode);
     const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState({
-        email: '',
-        password: '',
-        name: '',
-        telegram: ''
-    });
+    const [form, setForm] = useState({ email: '', password: '', name: '', telegram: '' });
 
     const handleLogin = async () => {
-        if (!form.email || !form.password) {
-            alert('Заполните все поля');
-            return;
-        }
-
+        if (!form.email || !form.password) { alert('Заполните все поля'); return; }
         setLoading(true);
         try {
             await window.fb.auth.signInWithEmailAndPassword(form.email, form.password);
-            onSuccess?.();
-            onClose();
+            onSuccess?.(); onClose();
         } catch (error) {
-            if (error.code === 'auth/user-not-found') {
-                alert('Пользователь не найден. Зарегистрируйтесь.');
-            } else if (error.code === 'auth/wrong-password') {
-                alert('Неверный пароль');
-            } else {
-                alert('Ошибка входа: ' + error.message);
-            }
+            if (error.code === 'auth/user-not-found') alert('Пользователь не найден. Зарегистрируйтесь.');
+            else if (error.code === 'auth/wrong-password') alert('Неверный пароль');
+            else alert('Ошибка входа: ' + error.message);
         }
         setLoading(false);
     };
 
     const handleRegister = async () => {
-        if (!form.email || !form.password || !form.name || !form.telegram) {
-            alert('Заполните все обязательные поля');
-            return;
-        }
-
-        if (form.password.length < 6) {
-            alert('Пароль должен содержать минимум 6 символов');
-            return;
-        }
-
+        if (!form.email || !form.password || !form.name || !form.telegram) { alert('Заполните все обязательные поля'); return; }
+        if (form.password.length < 6) { alert('Пароль должен содержать минимум 6 символов'); return; }
         setLoading(true);
         try {
             const userCredential = await window.fb.auth.createUserWithEmailAndPassword(form.email, form.password);
             const user = userCredential.user;
-
             await user.updateProfile({ displayName: form.name });
-
             await window.fb.doc('players', user.uid).set({
-                id: user.uid,
-                name: form.name,
-                email: form.email,
-                telegram: form.telegram,
-                photoURL: null,
-                points: 0,
-                totalMatches: 0,
-                wins: 0,
-                losses: 0,
-                tournamentsPlayed: 0,
-                gamesWon: 0,
-                gamesLost: 0,
-                createdAt: new Date().toISOString(),
-                source: 'email'
+                id: user.uid, name: form.name, email: form.email, telegram: form.telegram, photoURL: null,
+                points: 0, totalMatches: 0, wins: 0, losses: 0, tournamentsPlayed: 0, gamesWon: 0, gamesLost: 0,
+                createdAt: new Date().toISOString(), source: 'email'
             });
-
             await user.sendEmailVerification();
-            
             alert('Регистрация успешна! Проверьте почту для подтверждения.');
-            onSuccess?.();
-            onClose();
+            onSuccess?.(); onClose();
         } catch (error) {
-            if (error.code === 'auth/email-already-in-use') {
-                alert('Email уже используется');
-            } else if (error.code === 'auth/weak-password') {
-                alert('Слишком простой пароль');
-            } else {
-                alert('Ошибка регистрации: ' + error.message);
-            }
+            if (error.code === 'auth/email-already-in-use') alert('Email уже используется');
+            else if (error.code === 'auth/weak-password') alert('Слишком простой пароль');
+            else alert('Ошибка регистрации: ' + error.message);
         }
         setLoading(false);
     };
@@ -639,98 +522,33 @@ window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
     return (
         <window.Modal onClose={onClose}>
             <window.Card className="p-8 w-full max-w-3xl relative">
-                <button 
-                    onClick={onClose}
-                    className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all"
-                >
-                    ×
-                </button>
-                
+                <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all">×</button>
                 <div className="mb-8">
-                    <h3 className="text-3xl font-bold text-black mb-2">
-                        {mode === 'login' ? 'Вход' : 'Регистрация'}
-                    </h3>
-                    <p className="text-gray-500">
-                        {mode === 'login' ? 'Войдите в свой аккаунт' : 'Создайте новый аккаунт'}
-                    </p>
+                    <h3 className="text-3xl font-bold text-black mb-2">{mode === 'login' ? 'Вход' : 'Регистрация'}</h3>
+                    <p className="text-gray-500">{mode === 'login' ? 'Войдите в свой аккаунт' : 'Создайте новый аккаунт'}</p>
                 </div>
-
                 {mode === 'register' ? (
                     <div className="grid grid-cols-2 gap-6">
                         <div className="space-y-4">
-                            <window.Input
-                                label="Имя и Фамилия *"
-                                value={form.name}
-                                onChange={e => setForm({...form, name: e.target.value})}
-                                placeholder="Александр Иванов"
-                                disabled={loading}
-                            />
-                            
-                            <window.Input
-                                label="Телеграм *"
-                                value={form.telegram}
-                                onChange={e => setForm({...form, telegram: e.target.value})}
-                                placeholder="@username"
-                                disabled={loading}
-                            />
+                            <window.Input label="Имя и Фамилия *" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Александр Иванов" disabled={loading} />
+                            <window.Input label="Телеграм *" value={form.telegram} onChange={e => setForm({...form, telegram: e.target.value})} placeholder="@username" disabled={loading} />
                         </div>
-
                         <div className="space-y-4">
-                            <window.Input
-                                label="Email *"
-                                type="email"
-                                value={form.email}
-                                onChange={e => setForm({...form, email: e.target.value})}
-                                placeholder="example@email.com"
-                                disabled={loading}
-                            />
-
-                            <window.Input
-                                label="Пароль *"
-                                type="password"
-                                value={form.password}
-                                onChange={e => setForm({...form, password: e.target.value})}
-                                placeholder="Минимум 6 символов"
-                                disabled={loading}
-                            />
+                            <window.Input label="Email *" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="example@email.com" disabled={loading} />
+                            <window.Input label="Пароль *" type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="Минимум 6 символов" disabled={loading} />
                         </div>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <window.Input
-                            label="Email *"
-                            type="email"
-                            value={form.email}
-                            onChange={e => setForm({...form, email: e.target.value})}
-                            placeholder="example@email.com"
-                            disabled={loading}
-                        />
-
-                        <window.Input
-                            label="Пароль *"
-                            type="password"
-                            value={form.password}
-                            onChange={e => setForm({...form, password: e.target.value})}
-                            placeholder="Минимум 6 символов"
-                            disabled={loading}
-                        />
+                        <window.Input label="Email *" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="example@email.com" disabled={loading} />
+                        <window.Input label="Пароль *" type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="Минимум 6 символов" disabled={loading} />
                     </div>
                 )}
-
-                <button
-                    onClick={mode === 'login' ? handleLogin : handleRegister}
-                    className="w-full mt-6 bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all disabled:opacity-50"
-                    disabled={loading}
-                >
+                <button onClick={mode === 'login' ? handleLogin : handleRegister} className="w-full mt-6 bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all disabled:opacity-50" disabled={loading}>
                     {loading ? 'Загрузка...' : (mode === 'login' ? 'Войти' : 'Создать аккаунт')}
                 </button>
-
                 <div className="text-center mt-6">
-                    <button
-                        onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-                        className="text-gray-500 hover:text-black text-sm transition-all"
-                        disabled={loading}
-                    >
+                    <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="text-gray-500 hover:text-black text-sm transition-all" disabled={loading}>
                         {mode === 'login' ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
                     </button>
                 </div>
@@ -744,39 +562,20 @@ window.AuthModal = ({ onClose }) => {
     const [showEmailAuth, setShowEmailAuth] = useState(false);
     const [emailAuthMode, setEmailAuthMode] = useState('login');
     
-    const handleGoogleLogin = async () => { 
-        await login(); 
-        onClose(); 
-    };
+    const handleGoogleLogin = async () => { await login(); onClose(); };
 
-    if (showEmailAuth) {
-        return <window.EmailAuthModal 
-            onClose={onClose} 
-            onSuccess={() => setShowEmailAuth(false)} 
-            initialMode={emailAuthMode}
-        />;
-    }
+    if (showEmailAuth) return <window.EmailAuthModal onClose={onClose} onSuccess={() => setShowEmailAuth(false)} initialMode={emailAuthMode} />;
     
     return (
         <window.Modal onClose={onClose}>
             <window.Card className="p-10 max-w-md w-full relative">
-                <button 
-                    onClick={onClose}
-                    className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all"
-                >
-                    ×
-                </button>
-
+                <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all">×</button>
                 <div className="text-center mb-10">
                     <h3 className="text-3xl font-bold text-black mb-2">Добро пожаловать</h3>
                     <p className="text-gray-500">Выберите способ входа</p>
                 </div>
-                
                 <div className="space-y-4">
-                    <button 
-                        onClick={handleGoogleLogin} 
-                        className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all flex items-center justify-center gap-3"
-                    >
+                    <button onClick={handleGoogleLogin} className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all flex items-center justify-center gap-3">
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -785,29 +584,15 @@ window.AuthModal = ({ onClose }) => {
                         </svg>
                         Войти через Google
                     </button>
-
-                    <button
-                        onClick={() => {
-                            setEmailAuthMode('login');
-                            setShowEmailAuth(true);
-                        }}
-                        className="w-full bg-gray-100 text-black px-6 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-3"
-                    >
+                    <button onClick={() => { setEmailAuthMode('login'); setShowEmailAuth(true); }} className="w-full bg-gray-100 text-black px-6 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-3">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                         Войти через Email
                     </button>
                 </div>
-                
                 <div className="text-center mt-6">
-                    <button
-                        onClick={() => {
-                            setEmailAuthMode('register');
-                            setShowEmailAuth(true);
-                        }}
-                        className="text-gray-500 hover:text-black text-sm transition-all"
-                    >
+                    <button onClick={() => { setEmailAuthMode('register'); setShowEmailAuth(true); }} className="text-gray-500 hover:text-black text-sm transition-all">
                         Создать аккаунт
                     </button>
                 </div>
@@ -819,7 +604,6 @@ window.AuthModal = ({ onClose }) => {
 window.ScoreModal = ({ match, onSave, onClose }) => {
     const [set1p1, setSet1p1] = useState(match.set1p1);
     const [set1p2, setSet1p2] = useState(match.set1p2);
-
     return (
         <window.Modal onClose={onClose}>
             <window.Card dark className="p-8 max-w-md w-full border border-gray-700">
@@ -842,9 +626,7 @@ window.ScoreModal = ({ match, onSave, onClose }) => {
 window.Layout = ({ children, activePage }) => {
     const auth = window.useAuth();
     const [showAuth, setShowAuth] = useState(false);
-    
     useEffect(() => { if (auth) auth.showAuth = () => setShowAuth(true); }, [auth]);
-
     return (
         <div className="min-h-screen bg-black text-white">
             <header className="border-b border-white/10">
