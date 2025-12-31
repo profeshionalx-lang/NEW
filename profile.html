@@ -24,6 +24,12 @@
         function ProfileView() {
             const { user, profile, isAdmin, logout } = window.useAuth();
 
+            const ready = window.useFirebaseReady();
+            
+            if (!ready || (user && !profile)) {
+                return <window.ProfileSkeleton />;
+            }
+
             if (!user || !profile) {
                 return (
                     <window.Card className="p-16 text-center">
