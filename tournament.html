@@ -964,7 +964,11 @@
             const [tab, setTab] = useState('info');
             const [showPairsEditor, setShowPairsEditor] = useState(false);
 
-            if (!t) return <div className="text-white">Загрузка...</div>;
+            const ready = window.useFirebaseReady();
+            
+            if (!ready || !t) {
+                return <window.TournamentInfoSkeleton />;
+            }
 
             const isRegistered = t.registeredPlayers?.some(p => p.id === user?.uid);
 
