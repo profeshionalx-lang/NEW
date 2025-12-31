@@ -150,6 +150,12 @@
             const [creating, setCreating] = useState(false);
             const [editing, setEditing] = useState(false);
 
+            const ready = window.useFirebaseReady();
+
+            if (!ready) {
+                return <window.PlayersListSkeleton />;
+            }
+
             const deletePlayer = async (playerId) => {
                 await window.fb.doc('players', playerId).delete();
                 setSelected(null);
