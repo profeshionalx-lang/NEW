@@ -21,8 +21,10 @@
     <script type="text/babel">
         const { useState } = React;
 
+        // MOBILE-FIRST CreatePlayer Modal
         function CreatePlayer({ onClose }) {
             const [form, setForm] = useState({ name: '', email: '', photoURL: '' });
+            const isMobile = window.useIsMobile();
             
             const submit = async () => {
                 if (!form.name.trim()) {
@@ -51,14 +53,21 @@
 
             return (
                 <window.Modal onClose={onClose}>
-                    <window.Card className="p-8 w-96">
-                        <h3 className="text-black text-2xl font-bold mb-4">Новый игрок</h3>
+                    <window.Card className={window.cn(
+                        isMobile 
+                            ? 'min-h-screen p-6 rounded-none flex flex-col justify-center' 
+                            : 'p-8 w-96'
+                    )}>
+                        <h3 className="text-black text-xl md:text-2xl font-bold mb-6">
+                            Новый игрок
+                        </h3>
                         <div className="space-y-4">
                             <window.Input 
                                 label="Имя" 
                                 value={form.name} 
                                 onChange={e => setForm({...form, name: e.target.value})}
                                 placeholder="Введите имя игрока"
+                                autoComplete="name"
                             />
                             <window.Input 
                                 label="Email (опционально)" 
@@ -66,15 +75,17 @@
                                 value={form.email} 
                                 onChange={e => setForm({...form, email: e.target.value})}
                                 placeholder="email@example.com"
+                                autoComplete="email"
                             />
                             <window.Input 
                                 label="URL фото (опционально)" 
                                 value={form.photoURL} 
                                 onChange={e => setForm({...form, photoURL: e.target.value})}
                                 placeholder="https://example.com/photo.jpg"
+                                autoComplete="url"
                             />
                             <window.Button onClick={submit} className="w-full">
-                                Создать
+                                Создать игрока
                             </window.Button>
                         </div>
                     </window.Card>
@@ -82,12 +93,14 @@
             );
         }
 
+        // MOBILE-FIRST EditPlayer Modal
         function EditPlayer({ player, onClose, onSave }) {
             const [form, setForm] = useState({ 
                 name: player.name || '', 
                 email: player.email || '', 
                 photoURL: player.photoURL || '' 
             });
+            const isMobile = window.useIsMobile();
             
             const submit = async () => {
                 if (!form.name.trim()) {
@@ -106,33 +119,42 @@
 
             return (
                 <window.Modal onClose={onClose}>
-                    <window.Card className="p-8 w-96">
-                        <h3 className="text-black text-2xl font-bold mb-4">Редактировать</h3>
+                    <window.Card className={window.cn(
+                        isMobile 
+                            ? 'min-h-screen p-6 rounded-none flex flex-col justify-center' 
+                            : 'p-8 w-96'
+                    )}>
+                        <h3 className="text-black text-xl md:text-2xl font-bold mb-6">
+                            Редактировать
+                        </h3>
                         <div className="space-y-4">
                             <window.Input 
                                 label="Имя" 
                                 value={form.name} 
                                 onChange={e => setForm({...form, name: e.target.value})}
+                                autoComplete="name"
                             />
                             <window.Input 
                                 label="Email" 
                                 type="email"
                                 value={form.email} 
                                 onChange={e => setForm({...form, email: e.target.value})}
+                                autoComplete="email"
                             />
                             <window.Input 
                                 label="URL фото" 
                                 value={form.photoURL} 
                                 onChange={e => setForm({...form, photoURL: e.target.value})}
+                                autoComplete="url"
                             />
-                            <div className="flex gap-4">
+                            <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                                 <window.Button onClick={submit} className="flex-1">
                                     Сохранить
                                 </window.Button>
                                 <window.Button 
                                     variant="secondary" 
                                     onClick={onClose}
-                                    className="bg-gray-100 text-black hover:bg-gray-200"
+                                    className="bg-gray-100 text-black active:bg-gray-200 md:w-auto"
                                 >
                                     Отмена
                                 </window.Button>
@@ -143,6 +165,7 @@
             );
         }
 
+        // MOBILE-FIRST PlayersView
         function PlayersView() {
             const { isAdmin } = window.useAuth();
             const players = window.useCollection('players').sort((a, b) => (b.points || 0) - (a.points || 0));
@@ -150,6 +173,7 @@
             const [creating, setCreating] = useState(false);
             const [editing, setEditing] = useState(false);
             const ready = window.useFirebaseReady();
+            const isMobile = window.useIsMobile();
 
             if (!ready) {
                 return <window.PlayersListSkeleton />;
@@ -170,20 +194,31 @@
                 );
             }
 
+            // Player Detail View - MOBILE-FIRST
             if (selected) {
-                const winRate = selected.totalMatches > 0 ? ((selected.wins / selected.totalMatches) * 100).toFixed(0) : 0;
+                const winRate = selected.totalMatches > 0 
+                    ? ((selected.wins / selected.totalMatches) * 100).toFixed(0) 
+                    : 0;
+                
                 return (
                     <div>
-                        <div className="flex justify-between items-center mb-8">
-                            <window.Button variant="ghost" onClick={() => setSelected(null)}>← Назад</window.Button>
+                        {/* Header с кнопками */}
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8">
+                            <window.Button 
+                                variant="ghost" 
+                                onClick={() => setSelected(null)}
+                            >
+                                ← Назад
+                            </window.Button>
+                            
                             {isAdmin && (
-                                <div className="flex gap-3">
+                                <div className="flex gap-3 w-full md:w-auto">
                                     <window.Button 
                                         variant="secondary" 
                                         onClick={() => setEditing(true)}
-                                        className="bg-white/10 text-white hover:bg-white/20"
+                                        className="bg-white/10 text-white active:bg-white/20 flex-1 md:flex-none"
                                     >
-                                        ✏️ Редактировать
+                                        ✏️ Изменить
                                     </window.Button>
                                     <window.Button 
                                         variant="danger" 
@@ -192,30 +227,44 @@
                                                 deletePlayer(selected.id);
                                             }
                                         }}
+                                        className="flex-1 md:flex-none"
                                     >
                                         🗑️ Удалить
                                     </window.Button>
                                 </div>
                             )}
                         </div>
-                        <window.Card className="p-12">
-                            <div className="flex items-center gap-8 mb-12">
-                                <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-4xl overflow-hidden">
-                                    {selected.photoURL ? <img src={selected.photoURL} className="w-24 h-24 rounded-full object-cover" alt="" /> : selected.name?.[0] || '?'}
+                        
+                        {/* Player Info Card */}
+                        <window.Card className="p-6 md:p-12">
+                            {/* Avatar and Name */}
+                            <div className="flex items-center gap-4 md:gap-8 mb-8 md:mb-12">
+                                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-3xl md:text-4xl overflow-hidden shrink-0">
+                                    {selected.photoURL ? (
+                                        <img 
+                                            src={selected.photoURL} 
+                                            className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover" 
+                                            alt="" 
+                                        />
+                                    ) : (
+                                        selected.name?.[0] || '?'
+                                    )}
                                 </div>
-                                <div>
-                                    <h2 className="text-4xl font-black text-black mb-2">{selected.name || 'Игрок'}</h2>
+                                <div className="flex-1 min-w-0">
+                                    <h2 className="text-2xl md:text-4xl font-black text-black mb-2 truncate">
+                                        {selected.name || 'Игрок'}
+                                    </h2>
                                     <div className="space-y-1">
                                         {selected.telegram && (
                                             <div className="flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.10.08.13.19.14.27-.01.06.01.24 0 .38z"/>
                                                 </svg>
                                                 <a 
                                                     href={`https://t.me/${selected.telegram.replace('@', '')}`}
                                                     target="_blank" 
                                                     rel="noopener noreferrer"
-                                                    className="text-blue-500 hover:text-blue-600 transition-all"
+                                                    className="text-blue-500 active:text-blue-600 transition-all text-sm truncate"
                                                 >
                                                     {selected.telegram.startsWith('@') ? selected.telegram : '@' + selected.telegram}
                                                 </a>
@@ -223,31 +272,51 @@
                                         )}
                                         {isAdmin && selected.email && (
                                             <div className="flex items-center gap-2">
-                                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                                 </svg>
-                                                <span className="text-gray-400">{selected.email}</span>
+                                                <span className="text-gray-400 text-sm truncate">
+                                                    {selected.email}
+                                                </span>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
-                                    <div className="text-4xl font-black text-black">{selected.tournamentsPlayed || 0}</div>
-                                    <div className="text-gray-400 text-sm">Турниров</div>
+                            
+                            {/* Stats Grid - адаптивный */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+                                <div className="text-center p-4 md:p-6 bg-gray-50 rounded-xl md:rounded-2xl">
+                                    <div className="text-3xl md:text-4xl font-black text-black">
+                                        {selected.tournamentsPlayed || 0}
+                                    </div>
+                                    <div className="text-gray-400 text-xs md:text-sm mt-1">
+                                        Турниров
+                                    </div>
                                 </div>
-                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
-                                    <div className="text-4xl font-black text-black">{selected.totalMatches || 0}</div>
-                                    <div className="text-gray-400 text-sm">Матчей</div>
+                                <div className="text-center p-4 md:p-6 bg-gray-50 rounded-xl md:rounded-2xl">
+                                    <div className="text-3xl md:text-4xl font-black text-black">
+                                        {selected.totalMatches || 0}
+                                    </div>
+                                    <div className="text-gray-400 text-xs md:text-sm mt-1">
+                                        Матчей
+                                    </div>
                                 </div>
-                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
-                                    <div className="text-4xl font-black text-black">{selected.points || 0}</div>
-                                    <div className="text-gray-400 text-sm">Очков</div>
+                                <div className="text-center p-4 md:p-6 bg-gray-50 rounded-xl md:rounded-2xl">
+                                    <div className="text-3xl md:text-4xl font-black text-black">
+                                        {selected.points || 0}
+                                    </div>
+                                    <div className="text-gray-400 text-xs md:text-sm mt-1">
+                                        Очков
+                                    </div>
                                 </div>
-                                <div className="text-center p-6 bg-gray-50 rounded-2xl">
-                                    <div className="text-4xl font-black text-black">{winRate}%</div>
-                                    <div className="text-gray-400 text-sm">Винрейт</div>
+                                <div className="text-center p-4 md:p-6 bg-gray-50 rounded-xl md:rounded-2xl">
+                                    <div className="text-3xl md:text-4xl font-black text-black">
+                                        {winRate}%
+                                    </div>
+                                    <div className="text-gray-400 text-xs md:text-sm mt-1">
+                                        Винрейт
+                                    </div>
                                 </div>
                             </div>
                         </window.Card>
@@ -255,20 +324,31 @@
                 );
             }
 
+            // Players List - MOBILE-FIRST
             return (
                 <div>
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="text-3xl font-bold text-white">Рейтинг игроков</h2>
+                    {/* Header */}
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8">
+                        <h2 className="text-2xl md:text-3xl font-bold text-white">
+                            Рейтинг игроков
+                        </h2>
                         {isAdmin && (
-                            <window.Button onClick={() => setCreating(true)}>
+                            <window.Button 
+                                onClick={() => setCreating(true)}
+                                className={isMobile ? 'w-full' : ''}
+                            >
                                 + Добавить игрока
                             </window.Button>
                         )}
                     </div>
+                    
+                    {/* Empty State */}
                     {players.length === 0 ? (
-                        <window.Card className="p-16 text-center">
-                            <div className="text-6xl mb-4 opacity-20">🎾</div>
-                            <p className="text-gray-400 mb-6">Пока нет игроков</p>
+                        <window.Card className="p-12 md:p-16 text-center">
+                            <div className="text-5xl md:text-6xl mb-4 opacity-20">🎾</div>
+                            <p className="text-gray-400 mb-6 text-sm md:text-base">
+                                Пока нет игроков
+                            </p>
                             {isAdmin && (
                                 <window.Button onClick={() => setCreating(true)}>
                                     Добавить первого игрока
@@ -276,15 +356,23 @@
                             )}
                         </window.Card>
                     ) : (
-                        <div className="space-y-4">
+                        /* Players List */
+                        <div className="space-y-3 md:space-y-4">
                             {players.map((p, i) => (
                                 <window.Card 
                                     key={p.id} 
-                                    className="p-5 cursor-pointer hover:shadow-lg transition-all flex items-center gap-6 group" 
+                                    className={window.cn(
+                                        'p-4 md:p-5 cursor-pointer transition-all',
+                                        'flex items-center gap-3 md:gap-6 group',
+                                        'active:scale-[0.98]'
+                                    )}
                                     onClick={() => setSelected(p)}
                                 >
+                                    {/* Position Badge */}
                                     <div className={window.cn(
-                                        'w-12 h-12 rounded-full flex items-center justify-center font-black text-xl', 
+                                        'w-10 h-10 md:w-12 md:h-12 rounded-full',
+                                        'flex items-center justify-center',
+                                        'font-black text-lg md:text-xl shrink-0', 
                                         i === 0 ? 'bg-black text-white' : 
                                         i === 1 ? 'bg-gray-400 text-white' : 
                                         i === 2 ? 'bg-gray-300 text-gray-700' : 
@@ -292,15 +380,35 @@
                                     )}>
                                         {i + 1}
                                     </div>
-                                    <window.Avatar src={p.photoURL || ''} name={p.name || 'Игрок'} size="lg" />
-                                    <div className="flex-1">
-                                        <div className="text-xl font-bold text-black">{p.name || 'Игрок'}</div>
-                                        <div className="text-gray-400 text-sm">{p.totalMatches || 0} матчей</div>
+                                    
+                                    {/* Avatar */}
+                                    <window.Avatar 
+                                        src={p.photoURL || ''} 
+                                        name={p.name || 'Игрок'} 
+                                        size="lg" 
+                                    />
+                                    
+                                    {/* Player Info */}
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-base md:text-xl font-bold text-black truncate">
+                                            {p.name || 'Игрок'}
+                                        </div>
+                                        <div className="text-gray-400 text-xs md:text-sm">
+                                            {p.totalMatches || 0} матчей
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <div className="text-3xl font-black text-black">{p.points || 0}</div>
-                                        <div className="text-gray-400 text-xs">очков</div>
+                                    
+                                    {/* Points */}
+                                    <div className="text-right shrink-0">
+                                        <div className="text-2xl md:text-3xl font-black text-black">
+                                            {p.points || 0}
+                                        </div>
+                                        <div className="text-gray-400 text-xs">
+                                            очков
+                                        </div>
                                     </div>
+                                    
+                                    {/* Delete Button (Admin only) */}
                                     {isAdmin && (
                                         <button
                                             onClick={(e) => {
@@ -309,15 +417,23 @@
                                                     deletePlayer(p.id);
                                                 }
                                             }}
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 p-2"
+                                            className={window.cn(
+                                                'text-gray-300 active:text-red-500 transition-all',
+                                                'p-2 min-w-[44px] min-h-[44px]',
+                                                'flex items-center justify-center shrink-0',
+                                                isMobile 
+                                                    ? 'opacity-100' 
+                                                    : 'opacity-0 group-hover:opacity-100'
+                                            )}
                                         >
-                                            🗑️
+                                            <span className="text-xl">🗑️</span>
                                         </button>
                                     )}
                                 </window.Card>
                             ))}
                         </div>
                     )}
+                    
                     {creating && <CreatePlayer onClose={() => setCreating(false)} />}
                 </div>
             );
