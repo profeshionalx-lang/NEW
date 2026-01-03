@@ -36,7 +36,6 @@ window.useFirebaseReady = () => {
     
     return ready;
 };
-        });
     }, [ready, name]);
     return data;
 };
