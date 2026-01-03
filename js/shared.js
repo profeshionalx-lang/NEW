@@ -36,6 +36,17 @@ window.useFirebaseReady = () => {
     
     return ready;
 };
+
+window.useCollection = (name) => {
+    const [data, setData] = useState([]);
+    const ready = window.useFirebaseReady();
+    useEffect(() => {
+        if (!ready) return;
+        return window.fb.collection(name).onSnapshot(snap => {
+            const items = [];
+            snap.forEach(doc => items.push(doc.data()));
+            setData(items);
+        });
     }, [ready, name]);
     return data;
 };
