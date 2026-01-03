@@ -1,4 +1,4 @@
-// js/shared.js
+// js/shared.js - MOBILE FIRST VERSION
 const { useState, useEffect, createContext, useContext } = React;
 
 // === УТИЛИТЫ ===
@@ -105,6 +105,19 @@ window.useAuthState = () => {
         login: () => window.fb.auth.signInWithPopup(window.fb.googleProvider),
         logout: () => window.fb.auth.signOut()
     };
+};
+
+// Hook для определения размера экрана
+window.useIsMobile = () => {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+    
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    
+    return isMobile;
 };
 
 // === ТУРНИРНАЯ ЛОГИКА ===
@@ -261,7 +274,7 @@ window.SkeletonBox = ({ className = '' }) => (
 );
 
 window.TournamentCardSkeleton = () => (
-    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all">
+    <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-4 md:p-6 hover:bg-white/10 transition-all">
         <div className="flex justify-between items-start mb-4">
             <window.SkeletonBox className="h-5 w-24 rounded-full" />
         </div>
@@ -300,7 +313,7 @@ window.TournamentsListSkeleton = () => (
                 <div className="w-2 h-2 rounded-full bg-white"></div>
                 <window.SkeletonBox className="h-4 w-32 rounded" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 <window.TournamentCardSkeleton />
                 <window.TournamentCardSkeleton />
                 <window.TournamentCardSkeleton />
@@ -311,7 +324,7 @@ window.TournamentsListSkeleton = () => (
                 <div className="w-2 h-2 rounded-full bg-white animate-pulse"></div>
                 <window.SkeletonBox className="h-4 w-40 rounded" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 <window.TournamentCardSkeleton />
                 <window.TournamentCardSkeleton />
             </div>
@@ -327,18 +340,18 @@ window.PlayerRowSkeleton = ({ place }) => {
         return 'bg-white/10';
     };
     return (
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-5 flex items-center gap-6 hover:bg-white/10 transition-all">
-            <div className={window.cn('w-12 h-12 rounded-full flex items-center justify-center', getMedalColor())}>
-                <div className="text-xl font-black text-white">{place}</div>
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-5 flex items-center gap-4 md:gap-6 hover:bg-white/10 transition-all">
+            <div className={window.cn('w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center', getMedalColor())}>
+                <div className="text-lg md:text-xl font-black text-white">{place}</div>
             </div>
-            <window.SkeletonBox className="w-14 h-14 rounded-full" />
+            <window.SkeletonBox className="w-12 h-12 md:w-14 md:h-14 rounded-full" />
             <div className="flex-1 space-y-2">
-                <window.SkeletonBox className="h-6 w-40 rounded-lg" />
-                <window.SkeletonBox className="h-4 w-24 rounded" />
+                <window.SkeletonBox className="h-5 md:h-6 w-32 md:w-40 rounded-lg" />
+                <window.SkeletonBox className="h-3 md:h-4 w-20 md:w-24 rounded" />
             </div>
             <div className="text-right space-y-2">
-                <window.SkeletonBox className="h-9 w-16 rounded-lg ml-auto" />
-                <window.SkeletonBox className="h-3 w-12 rounded ml-auto" />
+                <window.SkeletonBox className="h-8 md:h-9 w-12 md:w-16 rounded-lg ml-auto" />
+                <window.SkeletonBox className="h-3 w-10 md:w-12 rounded ml-auto" />
             </div>
         </div>
     );
@@ -346,11 +359,11 @@ window.PlayerRowSkeleton = ({ place }) => {
 
 window.PlayersListSkeleton = () => (
     <div>
-        <div className="flex justify-between items-center mb-8">
-            <window.SkeletonBox className="h-9 w-48 rounded-lg" />
-            <window.SkeletonBox className="h-12 w-48 rounded-full" />
+        <div className="flex justify-between items-center mb-6 md:mb-8">
+            <window.SkeletonBox className="h-8 md:h-9 w-36 md:w-48 rounded-lg" />
+            <window.SkeletonBox className="h-12 w-36 md:w-48 rounded-full" />
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                 <window.PlayerRowSkeleton key={i} place={i} />
             ))}
@@ -360,161 +373,270 @@ window.PlayersListSkeleton = () => (
 
 window.ProfileSkeleton = () => (
     <div>
-        <div className="flex justify-between items-center mb-8">
-            <window.SkeletonBox className="h-12 w-32 rounded-full" />
-            <window.SkeletonBox className="h-12 w-32 rounded-full" />
+        <div className="flex justify-between items-center mb-6 md:mb-8">
+            <window.SkeletonBox className="h-12 w-24 md:w-32 rounded-full" />
+            <window.SkeletonBox className="h-12 w-24 md:w-32 rounded-full" />
         </div>
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-12">
-            <div className="flex items-center gap-8 mb-12">
-                <window.SkeletonBox className="w-24 h-24 rounded-full" />
-                <div className="flex-1 space-y-3">
-                    <window.SkeletonBox className="h-10 w-64 rounded-lg" />
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl md:rounded-3xl p-6 md:p-12">
+            <div className="flex items-center gap-4 md:gap-8 mb-8 md:mb-12">
+                <window.SkeletonBox className="w-20 h-20 md:w-24 md:h-24 rounded-full" />
+                <div className="flex-1 space-y-2 md:space-y-3">
+                    <window.SkeletonBox className="h-8 md:h-10 w-48 md:w-64 rounded-lg" />
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
                             <window.SkeletonBox className="w-4 h-4 rounded" />
-                            <window.SkeletonBox className="h-4 w-32 rounded" />
+                            <window.SkeletonBox className="h-4 w-24 md:w-32 rounded" />
                         </div>
                         <div className="flex items-center gap-2">
                             <window.SkeletonBox className="w-4 h-4 rounded" />
-                            <window.SkeletonBox className="h-4 w-48 rounded" />
+                            <window.SkeletonBox className="h-4 w-32 md:w-48 rounded" />
                         </div>
                     </div>
                 </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
                 {[1, 2, 3, 4].map(i => (
-                    <div key={i} className="text-center p-6 bg-white/5 rounded-2xl border border-white/10">
-                        <window.SkeletonBox className="h-10 w-16 mx-auto rounded-lg mb-2" />
-                        <window.SkeletonBox className="h-3 w-20 mx-auto rounded" />
+                    <div key={i} className="text-center p-4 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/10">
+                        <window.SkeletonBox className="h-8 md:h-10 w-12 md:w-16 mx-auto rounded-lg mb-2" />
+                        <window.SkeletonBox className="h-3 w-16 md:w-20 mx-auto rounded" />
                     </div>
                 ))}
             </div>
-            <div className="grid grid-cols-2 gap-6">
-                <div className="text-center p-6 bg-white/5 rounded-2xl border border-white/10">
-                    <window.SkeletonBox className="h-9 w-20 mx-auto rounded-lg mb-2" />
-                    <window.SkeletonBox className="h-3 w-32 mx-auto rounded" />
+            <div className="grid grid-cols-2 gap-4 md:gap-6">
+                <div className="text-center p-4 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/10">
+                    <window.SkeletonBox className="h-8 md:h-9 w-16 md:w-20 mx-auto rounded-lg mb-2" />
+                    <window.SkeletonBox className="h-3 w-24 md:w-32 mx-auto rounded" />
                 </div>
-                <div className="text-center p-6 bg-white/5 rounded-2xl border border-white/10">
-                    <window.SkeletonBox className="h-9 w-20 mx-auto rounded-lg mb-2" />
-                    <window.SkeletonBox className="h-3 w-32 mx-auto rounded" />
+                <div className="text-center p-4 md:p-6 bg-white/5 rounded-xl md:rounded-2xl border border-white/10">
+                    <window.SkeletonBox className="h-8 md:h-9 w-16 md:w-20 mx-auto rounded-lg mb-2" />
+                    <window.SkeletonBox className="h-3 w-24 md:w-32 mx-auto rounded" />
                 </div>
             </div>
         </div>
     </div>
 );
 
-window.TournamentInfoSkeleton = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-6">
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-8">
-                <window.SkeletonBox className="h-4 w-24 rounded mb-6" />
-                <div className="space-y-5">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="flex items-center gap-4">
-                            <window.SkeletonBox className="w-8 h-8 rounded-full" />
-                            <div className="flex-1 space-y-2">
-                                <window.SkeletonBox className="h-3 w-16 rounded" />
-                                <window.SkeletonBox className="h-5 w-48 rounded" />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            <window.SkeletonBox className="h-14 w-full rounded-2xl" />
-        </div>
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-3xl p-8">
-            <div className="flex justify-between items-center mb-6">
-                <window.SkeletonBox className="h-4 w-32 rounded" />
-                <window.SkeletonBox className="h-6 w-16 rounded" />
-            </div>
-            <div className="space-y-3">
-                {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5">
-                        <window.SkeletonBox className="w-8 h-8 rounded-full" />
-                        <window.SkeletonBox className="w-10 h-10 rounded-full" />
-                        <window.SkeletonBox className="flex-1 h-5 rounded" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    </div>
-);
+// === UI КОМПОНЕНТЫ - MOBILE FIRST ===
 
-// === UI КОМПОНЕНТЫ ===
+// Card - адаптивные отступы
 window.Card = ({ children, className, dark, ...props }) => (
-    <div className={window.cn(dark ? 'bg-white/5 border border-white/10' : 'bg-white', 'rounded-3xl', className)} {...props}>{children}</div>
+    <div 
+        className={window.cn(
+            dark ? 'bg-white/5 border border-white/10' : 'bg-white', 
+            'rounded-2xl md:rounded-3xl', 
+            className
+        )} 
+        {...props}
+    >
+        {children}
+    </div>
 );
 
+// Button - touch-friendly размеры, без hover на мобильных
 window.Button = ({ children, variant = 'primary', className, ...props }) => {
     const styles = {
-        primary: 'bg-white text-black hover:bg-white/90',
-        secondary: 'bg-white/10 text-white hover:bg-white/20',
-        danger: 'border-2 border-red-500 text-red-500 hover:bg-red-50',
-        ghost: 'text-white/40 hover:text-white'
+        primary: 'bg-white text-black active:bg-white/90 active:scale-95',
+        secondary: 'bg-white/10 text-white active:bg-white/20 active:scale-95',
+        danger: 'border-2 border-red-500 text-red-500 active:bg-red-50 active:scale-95',
+        ghost: 'text-white/40 active:text-white active:scale-95'
     };
-    return <button className={window.cn('px-6 py-3 rounded-full font-semibold transition-all', styles[variant], className)} {...props}>{children}</button>;
+    
+    return (
+        <button 
+            className={window.cn(
+                'px-4 py-3 md:px-6 md:py-3',
+                'min-h-[48px]', // Touch-friendly минимальная высота
+                'rounded-full font-semibold transition-all',
+                'disabled:opacity-50 disabled:cursor-not-allowed',
+                styles[variant], 
+                className
+            )} 
+            {...props}
+        >
+            {children}
+        </button>
+    );
 };
 
-window.Input = ({ label, className, ...props }) => (
-    <div>
-        {label && <label className="block text-sm font-medium text-gray-500 mb-2">{label}</label>}
-        <input className={window.cn('w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-black placeholder-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all', className)} {...props} />
-    </div>
-);
+// Input - крупнее, правильные типы клавиатур
+window.Input = ({ label, className, type = 'text', ...props }) => {
+    // Определяем правильный inputMode для мобильных клавиатур
+    const getInputMode = () => {
+        if (type === 'email') return 'email';
+        if (type === 'tel') return 'tel';
+        if (type === 'number') return 'numeric';
+        if (type === 'url') return 'url';
+        return 'text';
+    };
 
+    return (
+        <div>
+            {label && (
+                <label className="block text-sm font-medium text-gray-500 mb-2">
+                    {label}
+                </label>
+            )}
+            <input 
+                type={type}
+                inputMode={getInputMode()}
+                className={window.cn(
+                    'w-full p-4 min-h-[48px]', // Touch-friendly
+                    'bg-gray-50 border border-gray-200 rounded-xl md:rounded-2xl',
+                    'text-base md:text-sm', // Крупнее на мобильных (избегаем zoom на iOS)
+                    'text-black placeholder-gray-400',
+                    'focus:border-black focus:ring-1 focus:ring-black',
+                    'outline-none transition-all',
+                    'disabled:opacity-50 disabled:cursor-not-allowed',
+                    className
+                )} 
+                {...props} 
+            />
+        </div>
+    );
+};
+
+// Avatar - адаптивные размеры
 window.Avatar = ({ src, name, size = 'md', className }) => {
-    const sizes = { sm: 'w-8 h-8 text-sm', md: 'w-10 h-10', lg: 'w-14 h-14 text-xl' };
+    const sizes = { 
+        sm: 'w-8 h-8 text-xs md:text-sm', 
+        md: 'w-10 h-10 md:w-12 md:h-12 text-sm md:text-base', 
+        lg: 'w-12 h-12 md:w-14 md:h-14 text-base md:text-xl' 
+    };
+    
     return src ? (
-        <img src={src} alt="" className={window.cn('rounded-full', sizes[size], className)} />
+        <img 
+            src={src} 
+            alt={name || ''} 
+            className={window.cn('rounded-full object-cover', sizes[size], className)} 
+        />
     ) : (
-        <div className={window.cn('rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold', sizes[size], className)}>
+        <div className={window.cn(
+            'rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold shrink-0', 
+            sizes[size], 
+            className
+        )}>
             {name?.[0] || '?'}
         </div>
     );
 };
 
-window.Modal = ({ children, onClose }) => (
-    <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={onClose}>
-        <div onClick={e => e.stopPropagation()}>{children}</div>
-    </div>
-);
+// Modal - full-screen на мобильных, floating на десктопе
+window.Modal = ({ children, onClose }) => {
+    const isMobile = window.useIsMobile();
+    
+    // Блокируем скролл body при открытии модального окна
+    useEffect(() => {
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
 
+    return (
+        <div 
+            className={window.cn(
+                'fixed inset-0 z-50',
+                'bg-black/90',
+                isMobile ? '' : 'flex items-center justify-center p-4'
+            )}
+            onClick={onClose}
+        >
+            <div 
+                className={window.cn(
+                    isMobile 
+                        ? 'w-full h-full overflow-y-auto' 
+                        : 'max-h-[90vh] overflow-y-auto'
+                )}
+                onClick={e => e.stopPropagation()}
+            >
+                {children}
+            </div>
+        </div>
+    );
+};
+
+// Badge - адаптивный
 window.Badge = ({ children, variant = 'default' }) => {
     const styles = {
         default: 'bg-gray-100 text-gray-700',
         active: 'bg-black text-white',
         completed: 'bg-gray-200 text-gray-600'
     };
-    return <span className={window.cn('px-3 py-1 rounded-full text-xs font-semibold', styles[variant])}>{children}</span>;
+    
+    return (
+        <span className={window.cn(
+            'px-3 py-1 rounded-full text-xs font-semibold inline-block',
+            styles[variant]
+        )}>
+            {children}
+        </span>
+    );
 };
 
+// Tab - touch-friendly, horizontal scroll
 window.Tab = ({ active, children, ...props }) => (
-    <button className={window.cn('px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all', active ? 'bg-white text-black' : 'text-white/40 hover:text-white')} {...props}>{children}</button>
+    <button 
+        className={window.cn(
+            'px-4 md:px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all',
+            'min-h-[44px]', // Touch-friendly
+            active 
+                ? 'bg-white text-black' 
+                : 'text-white/40 active:text-white active:bg-white/10'
+        )} 
+        {...props}
+    >
+        {children}
+    </button>
 );
 
-// === МОДАЛЬНЫЕ ОКНА ===
+// === МОДАЛЬНЫЕ ОКНА - MOBILE FIRST ===
+
+// EmailAuthModal - full-screen на мобильных, вертикальный stack
 window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
     const [mode, setMode] = useState(initialMode);
     const [loading, setLoading] = useState(false);
-    const [form, setForm] = useState({ email: '', password: '', name: '', telegram: '' });
+    const [form, setForm] = useState({
+        email: '',
+        password: '',
+        name: '',
+        telegram: ''
+    });
+    const isMobile = window.useIsMobile();
 
     const handleLogin = async () => {
-        if (!form.email || !form.password) { alert('Заполните все поля'); return; }
+        if (!form.email || !form.password) {
+            alert('Заполните все поля');
+            return;
+        }
+
         setLoading(true);
         try {
             await window.fb.auth.signInWithEmailAndPassword(form.email, form.password);
-            onSuccess?.(); onClose();
+            onSuccess?.();
+            onClose();
         } catch (error) {
-            if (error.code === 'auth/user-not-found') alert('Пользователь не найден. Зарегистрируйтесь.');
-            else if (error.code === 'auth/wrong-password') alert('Неверный пароль');
-            else alert('Ошибка входа: ' + error.message);
+            if (error.code === 'auth/user-not-found') {
+                alert('Пользователь не найден. Зарегистрируйтесь.');
+            } else if (error.code === 'auth/wrong-password') {
+                alert('Неверный пароль');
+            } else {
+                alert('Ошибка входа: ' + error.message);
+            }
         }
         setLoading(false);
     };
 
     const handleRegister = async () => {
-        if (!form.email || !form.password || !form.name || !form.telegram) { alert('Заполните все обязательные поля'); return; }
-        if (form.password.length < 6) { alert('Пароль должен содержать минимум 6 символов'); return; }
+        if (!form.email || !form.password || !form.name || !form.telegram) {
+            alert('Заполните все обязательные поля');
+            return;
+        }
+
+        if (form.password.length < 6) {
+            alert('Пароль должен содержать минимум 6 символов');
+            return;
+        }
+
         setLoading(true);
         try {
             const userCredential = await window.fb.auth.createUserWithEmailAndPassword(form.email, form.password);
@@ -527,7 +649,8 @@ window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
             });
             await user.sendEmailVerification();
             alert('Регистрация успешна! Проверьте почту для подтверждения.');
-            onSuccess?.(); onClose();
+            onSuccess?.(); 
+            onClose();
         } catch (error) {
             if (error.code === 'auth/email-already-in-use') alert('Email уже используется');
             else if (error.code === 'auth/weak-password') alert('Слишком простой пароль');
@@ -538,34 +661,105 @@ window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
 
     return (
         <window.Modal onClose={onClose}>
-            <window.Card className="p-8 w-full max-w-3xl relative">
-                <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all">×</button>
-                <div className="mb-8">
-                    <h3 className="text-3xl font-bold text-black mb-2">{mode === 'login' ? 'Вход' : 'Регистрация'}</h3>
-                    <p className="text-gray-500">{mode === 'login' ? 'Войдите в свой аккаунт' : 'Создайте новый аккаунт'}</p>
+            <window.Card className={window.cn(
+                'relative',
+                isMobile 
+                    ? 'min-h-screen p-6 rounded-none' 
+                    : 'p-8 w-full max-w-3xl'
+            )}>
+                <button 
+                    onClick={onClose}
+                    className="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 active:text-black text-3xl leading-none transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+                >
+                    ×
+                </button>
+                
+                <div className="mb-8 mt-8 md:mt-0">
+                    <h3 className="text-2xl md:text-3xl font-bold text-black mb-2">
+                        {mode === 'login' ? 'Вход' : 'Регистрация'}
+                    </h3>
+                    <p className="text-gray-500 text-sm md:text-base">
+                        {mode === 'login' ? 'Войдите в свой аккаунт' : 'Создайте новый аккаунт'}
+                    </p>
                 </div>
+
                 {mode === 'register' ? (
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-4">
-                            <window.Input label="Имя и Фамилия *" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Александр Иванов" disabled={loading} />
-                            <window.Input label="Телеграм *" value={form.telegram} onChange={e => setForm({...form, telegram: e.target.value})} placeholder="@username" disabled={loading} />
-                        </div>
-                        <div className="space-y-4">
-                            <window.Input label="Email *" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="example@email.com" disabled={loading} />
-                            <window.Input label="Пароль *" type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="Минимум 6 символов" disabled={loading} />
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                        <window.Input
+                            label="Имя и Фамилия *"
+                            value={form.name}
+                            onChange={e => setForm({...form, name: e.target.value})}
+                            placeholder="Александр Иванов"
+                            disabled={loading}
+                            autoComplete="name"
+                        />
+                        
+                        <window.Input
+                            label="Телеграм *"
+                            value={form.telegram}
+                            onChange={e => setForm({...form, telegram: e.target.value})}
+                            placeholder="@username"
+                            disabled={loading}
+                        />
+
+                        <window.Input
+                            label="Email *"
+                            type="email"
+                            value={form.email}
+                            onChange={e => setForm({...form, email: e.target.value})}
+                            placeholder="example@email.com"
+                            disabled={loading}
+                            autoComplete="email"
+                        />
+
+                        <window.Input
+                            label="Пароль *"
+                            type="password"
+                            value={form.password}
+                            onChange={e => setForm({...form, password: e.target.value})}
+                            placeholder="Минимум 6 символов"
+                            disabled={loading}
+                            autoComplete="new-password"
+                        />
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <window.Input label="Email *" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="example@email.com" disabled={loading} />
-                        <window.Input label="Пароль *" type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="Минимум 6 символов" disabled={loading} />
+                        <window.Input
+                            label="Email *"
+                            type="email"
+                            value={form.email}
+                            onChange={e => setForm({...form, email: e.target.value})}
+                            placeholder="example@email.com"
+                            disabled={loading}
+                            autoComplete="email"
+                        />
+
+                        <window.Input
+                            label="Пароль *"
+                            type="password"
+                            value={form.password}
+                            onChange={e => setForm({...form, password: e.target.value})}
+                            placeholder="Минимум 6 символов"
+                            disabled={loading}
+                            autoComplete="current-password"
+                        />
                     </div>
                 )}
-                <button onClick={mode === 'login' ? handleLogin : handleRegister} className="w-full mt-6 bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all disabled:opacity-50" disabled={loading}>
+
+                <button
+                    onClick={mode === 'login' ? handleLogin : handleRegister}
+                    className="w-full mt-6 bg-black text-white px-6 py-4 min-h-[52px] rounded-xl md:rounded-2xl font-semibold active:bg-gray-800 transition-all disabled:opacity-50"
+                    disabled={loading}
+                >
                     {loading ? 'Загрузка...' : (mode === 'login' ? 'Войти' : 'Создать аккаунт')}
                 </button>
+
                 <div className="text-center mt-6">
-                    <button onClick={() => setMode(mode === 'login' ? 'register' : 'login')} className="text-gray-500 hover:text-black text-sm transition-all" disabled={loading}>
+                    <button
+                        onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                        className="text-gray-500 active:text-black text-sm transition-all min-h-[44px] px-4"
+                        disabled={loading}
+                    >
                         {mode === 'login' ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'}
                     </button>
                 </div>
@@ -574,25 +768,51 @@ window.EmailAuthModal = ({ onClose, onSuccess, initialMode = 'login' }) => {
     );
 };
 
+// AuthModal - full-screen на мобильных
 window.AuthModal = ({ onClose }) => {
     const { login } = window.useAuth();
     const [showEmailAuth, setShowEmailAuth] = useState(false);
     const [emailAuthMode, setEmailAuthMode] = useState('login');
+    const isMobile = window.useIsMobile();
     
-    const handleGoogleLogin = async () => { await login(); onClose(); };
+    const handleGoogleLogin = async () => { 
+        await login(); 
+        onClose(); 
+    };
 
-    if (showEmailAuth) return <window.EmailAuthModal onClose={onClose} onSuccess={() => setShowEmailAuth(false)} initialMode={emailAuthMode} />;
+    if (showEmailAuth) {
+        return <window.EmailAuthModal 
+            onClose={onClose} 
+            onSuccess={() => setShowEmailAuth(false)} 
+            initialMode={emailAuthMode}
+        />;
+    }
     
     return (
         <window.Modal onClose={onClose}>
-            <window.Card className="p-10 max-w-md w-full relative">
-                <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-black text-2xl leading-none transition-all">×</button>
-                <div className="text-center mb-10">
-                    <h3 className="text-3xl font-bold text-black mb-2">Добро пожаловать</h3>
-                    <p className="text-gray-500">Выберите способ входа</p>
+            <window.Card className={window.cn(
+                'relative',
+                isMobile 
+                    ? 'min-h-screen p-6 rounded-none flex flex-col justify-center' 
+                    : 'p-10 max-w-md w-full'
+            )}>
+                <button 
+                    onClick={onClose}
+                    className="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 active:text-black text-3xl leading-none transition-all min-w-[44px] min-h-[44px] flex items-center justify-center"
+                >
+                    ×
+                </button>
+
+                <div className="text-center mb-8 md:mb-10 mt-8 md:mt-0">
+                    <h3 className="text-2xl md:text-3xl font-bold text-black mb-2">Добро пожаловать</h3>
+                    <p className="text-gray-500 text-sm md:text-base">Выберите способ входа</p>
                 </div>
+                
                 <div className="space-y-4">
-                    <button onClick={handleGoogleLogin} className="w-full bg-black text-white px-6 py-4 rounded-2xl font-semibold hover:bg-gray-800 transition-all flex items-center justify-center gap-3">
+                    <button 
+                        onClick={handleGoogleLogin} 
+                        className="w-full bg-black text-white px-6 py-4 min-h-[52px] rounded-xl md:rounded-2xl font-semibold active:bg-gray-800 transition-all flex items-center justify-center gap-3"
+                    >
                         <svg className="w-5 h-5" viewBox="0 0 24 24">
                             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -601,15 +821,29 @@ window.AuthModal = ({ onClose }) => {
                         </svg>
                         Войти через Google
                     </button>
-                    <button onClick={() => { setEmailAuthMode('login'); setShowEmailAuth(true); }} className="w-full bg-gray-100 text-black px-6 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all flex items-center justify-center gap-3">
+
+                    <button
+                        onClick={() => {
+                            setEmailAuthMode('login');
+                            setShowEmailAuth(true);
+                        }}
+                        className="w-full bg-gray-100 text-black px-6 py-4 min-h-[52px] rounded-xl md:rounded-2xl font-semibold active:bg-gray-200 transition-all flex items-center justify-center gap-3"
+                    >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                         Войти через Email
                     </button>
                 </div>
+                
                 <div className="text-center mt-6">
-                    <button onClick={() => { setEmailAuthMode('register'); setShowEmailAuth(true); }} className="text-gray-500 hover:text-black text-sm transition-all">
+                    <button
+                        onClick={() => {
+                            setEmailAuthMode('register');
+                            setShowEmailAuth(true);
+                        }}
+                        className="text-gray-500 active:text-black text-sm transition-all min-h-[44px] px-4"
+                    >
                         Создать аккаунт
                     </button>
                 </div>
@@ -618,56 +852,227 @@ window.AuthModal = ({ onClose }) => {
     );
 };
 
+// ScoreModal - огромные inputs на мобильных для легкого ввода счета
 window.ScoreModal = ({ match, onSave, onClose }) => {
     const [set1p1, setSet1p1] = useState(match.set1p1);
     const [set1p2, setSet1p2] = useState(match.set1p2);
+    const isMobile = window.useIsMobile();
+
     return (
         <window.Modal onClose={onClose}>
-            <window.Card dark className="p-8 max-w-md w-full border border-gray-700">
-                <h3 className="text-2xl font-bold text-white mb-6">Результат матча</h3>
+            <window.Card 
+                dark 
+                className={window.cn(
+                    'border border-gray-700',
+                    isMobile 
+                        ? 'min-h-screen p-6 rounded-none flex flex-col justify-center' 
+                        : 'p-8 max-w-md w-full'
+                )}
+            >
+                <h3 className="text-2xl md:text-3xl font-bold text-white mb-8 text-center">
+                    Результат матча
+                </h3>
+                
                 <div className="flex items-center gap-4 justify-center mb-8">
-                    <input type="number" min="0" max="20" className="w-20 h-20 p-2 bg-gray-700 border-2 border-blue-500 rounded-2xl text-center text-white text-3xl font-bold outline-none" value={set1p1} onChange={e => setSet1p1(e.target.value)} />
-                    <span className="text-white text-4xl font-bold">:</span>
-                    <input type="number" min="0" max="20" className="w-20 h-20 p-2 bg-gray-700 border-2 border-purple-500 rounded-2xl text-center text-white text-3xl font-bold outline-none" value={set1p2} onChange={e => setSet1p2(e.target.value)} />
+                    <input 
+                        type="number" 
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0" 
+                        max="20" 
+                        className={window.cn(
+                            'p-4 bg-gray-700 border-2 border-blue-500 rounded-xl md:rounded-2xl',
+                            'text-center text-white font-bold outline-none',
+                            isMobile 
+                                ? 'w-28 h-28 text-5xl' // Огромные на мобильных
+                                : 'w-20 h-20 text-3xl'
+                        )}
+                        value={set1p1} 
+                        onChange={e => setSet1p1(e.target.value)}
+                        autoFocus
+                    />
+                    <span className="text-white text-4xl md:text-5xl font-bold">:</span>
+                    <input 
+                        type="number" 
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        min="0" 
+                        max="20" 
+                        className={window.cn(
+                            'p-4 bg-gray-700 border-2 border-purple-500 rounded-xl md:rounded-2xl',
+                            'text-center text-white font-bold outline-none',
+                            isMobile 
+                                ? 'w-28 h-28 text-5xl' 
+                                : 'w-20 h-20 text-3xl'
+                        )}
+                        value={set1p2} 
+                        onChange={e => setSet1p2(e.target.value)} 
+                    />
                 </div>
-                <div className="flex gap-4">
-                    <window.Button onClick={() => { if (set1p1 !== '' && set1p2 !== '') onSave({ set1p1, set1p2 }); }} className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500">Сохранить</window.Button>
-                    <window.Button variant="secondary" onClick={onClose}>Отмена</window.Button>
+                
+                <div className="flex flex-col md:flex-row gap-4">
+                    <window.Button 
+                        onClick={() => { 
+                            if (set1p1 !== '' && set1p2 !== '') onSave({ set1p1, set1p2 }); 
+                        }} 
+                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white"
+                    >
+                        Сохранить
+                    </window.Button>
+                    <window.Button 
+                        variant="secondary" 
+                        onClick={onClose}
+                        className="md:w-auto"
+                    >
+                        Отмена
+                    </window.Button>
                 </div>
             </window.Card>
         </window.Modal>
     );
 };
 
-// === LAYOUT ===
+// === LAYOUT - MOBILE FIRST ===
 window.Layout = ({ children, activePage }) => {
     const auth = window.useAuth();
     const [showAuth, setShowAuth] = useState(false);
-    useEffect(() => { if (auth) auth.showAuth = () => setShowAuth(true); }, [auth]);
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const isMobile = window.useIsMobile();
+    
+    useEffect(() => { 
+        if (auth) auth.showAuth = () => setShowAuth(true); 
+    }, [auth]);
+
     return (
-        <div className="min-h-screen bg-black text-white">
-            <header className="border-b border-white/10">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <a href="/NEW/index.html" className="text-2xl font-bold no-underline text-white hover:opacity-80 transition-opacity">
+        <div className="min-h-screen bg-black text-white pb-20 md:pb-0">
+            {/* Desktop/Tablet Header */}
+            <header className="border-b border-white/10 sticky top-0 bg-black z-40">
+                <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
+                    <a 
+                        href="/NEW/index.html" 
+                        className="text-xl md:text-2xl font-bold no-underline text-white active:opacity-80 transition-opacity"
+                    >
                         Grechka <span className="text-white/40">•</span> Padel
                     </a>
-                    <nav className="flex gap-8">
-                        <a href="/NEW/index.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'tournaments' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Турниры</a>
-                        <a href="/NEW/players.html" className={window.cn('text-sm font-medium transition-all no-underline', activePage === 'players' ? 'text-white' : 'text-white/40 hover:text-white/70')}>Рейтинг</a>
+                    
+                    {/* Desktop Navigation */}
+                    <nav className="hidden md:flex gap-8">
+                        <a 
+                            href="/NEW/index.html" 
+                            className={window.cn(
+                                'text-sm font-medium transition-all no-underline',
+                                activePage === 'tournaments' ? 'text-white' : 'text-white/40 hover:text-white/70'
+                            )}
+                        >
+                            Турниры
+                        </a>
+                        <a 
+                            href="/NEW/players.html" 
+                            className={window.cn(
+                                'text-sm font-medium transition-all no-underline',
+                                activePage === 'players' ? 'text-white' : 'text-white/40 hover:text-white/70'
+                            )}
+                        >
+                            Рейтинг
+                        </a>
                     </nav>
-                    <div>
+                    
+                    {/* Desktop Auth */}
+                    <div className="hidden md:block">
                         {auth.user ? (
-                            <a href="/NEW/profile.html" className="flex gap-3 items-center no-underline cursor-pointer group">
+                            <a 
+                                href="/NEW/profile.html" 
+                                className="flex gap-3 items-center no-underline cursor-pointer group"
+                            >
                                 <window.Avatar src={auth.user.photoURL} name={auth.user.displayName} />
-                                <span className="text-white/40 group-hover:text-white text-sm transition-all">Профиль</span>
+                                <span className="text-white/40 group-hover:text-white text-sm transition-all">
+                                    Профиль
+                                </span>
                             </a>
                         ) : (
-                            <window.Button onClick={() => setShowAuth(true)}>Войти</window.Button>
+                            <window.Button onClick={() => setShowAuth(true)}>
+                                Войти
+                            </window.Button>
+                        )}
+                    </div>
+
+                    {/* Mobile Auth Button */}
+                    <div className="md:hidden">
+                        {auth.user ? (
+                            <a href="/NEW/profile.html">
+                                <window.Avatar src={auth.user.photoURL} name={auth.user.displayName} size="sm" />
+                            </a>
+                        ) : (
+                            <button
+                                onClick={() => setShowAuth(true)}
+                                className="text-white/60 active:text-white text-sm font-medium min-h-[44px] px-4"
+                            >
+                                Войти
+                            </button>
                         )}
                     </div>
                 </div>
             </header>
-            <main className="max-w-7xl mx-auto px-6 py-8">{children}</main>
+            
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
+                {children}
+            </main>
+            
+            {/* Mobile Bottom Navigation */}
+            {isMobile && (
+                <nav className="fixed bottom-0 left-0 right-0 bg-black border-t border-white/10 z-50">
+                    <div className="flex items-center justify-around px-4 py-3">
+                        <a 
+                            href="/NEW/index.html"
+                            className={window.cn(
+                                'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all no-underline min-h-[56px] justify-center',
+                                activePage === 'tournaments' 
+                                    ? 'text-white bg-white/10' 
+                                    : 'text-white/40 active:text-white active:bg-white/5'
+                            )}
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            <span className="text-xs font-medium">Турниры</span>
+                        </a>
+                        
+                        <a 
+                            href="/NEW/players.html"
+                            className={window.cn(
+                                'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all no-underline min-h-[56px] justify-center',
+                                activePage === 'players' 
+                                    ? 'text-white bg-white/10' 
+                                    : 'text-white/40 active:text-white active:bg-white/5'
+                            )}
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <span className="text-xs font-medium">Рейтинг</span>
+                        </a>
+
+                        {auth.user && (
+                            <a 
+                                href="/NEW/profile.html"
+                                className={window.cn(
+                                    'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all no-underline min-h-[56px] justify-center',
+                                    activePage === 'profile' 
+                                        ? 'text-white bg-white/10' 
+                                        : 'text-white/40 active:text-white active:bg-white/5'
+                                )}
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                <span className="text-xs font-medium">Профиль</span>
+                            </a>
+                        )}
+                    </div>
+                </nav>
+            )}
+            
             {showAuth && <window.AuthModal onClose={() => setShowAuth(false)} />}
         </div>
     );
